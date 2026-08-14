@@ -1,0 +1,244 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* ==================================================
+     1. CANONICAL COLOR TOKENS
+     ================================================== */
+  --bg-primary: #F1FFF9;
+  --accent-primary: #17BC9B;
+  --text-primary: #2D2D2D;
+  --text-secondary: #6B8079;
+  --surface-base: #FFFFFF;
+  --surface-soft: #E2EEE9;
+  --surface-light: #E2F5F0;
+  --destructive: #E04848;
+  --border-subtle: rgba(107, 128, 121, 0.15);
+
+  /* ==================================================
+     2. RADIUS TOKENS
+     ================================================== */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-control: 25px;
+  --radius-full: 9999px;
+
+  /* ==================================================
+     3. TYPOGRAPHY FALLBACK VARIABLES
+     ================================================== */
+  --font-geist: Geist, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-geist-sans: Geist, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-hind-siliguri: "Hind Siliguri", "Noto Sans Bengali", "Kalpurush", sans-serif;
+  --font-lora: Lora, Georgia, serif;
+  --font-jetbrains-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, monospace;
+}
+
+/* Viewport Baseline & Scroll Isolation */
+html {
+  height: 100%;
+  height: 100dvh;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), var(--font-geist);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  height: 100dvh;
+  width: 100vw;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), var(--font-geist);
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+/* ==================================================
+   4. SEMANTIC TYPOGRAPHY ROLES
+   ================================================== */
+.font-ui {
+  font-family: var(--font-geist-sans), var(--font-geist), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.font-bangla {
+  font-family: var(--font-hind-siliguri), "Noto Sans Bengali", "Kalpurush", sans-serif;
+}
+
+.font-editorial {
+  font-family: var(--font-lora), Georgia, serif;
+}
+
+.font-code {
+  font-family: var(--font-jetbrains-mono), "Fira Code", "Cascadia Code", Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==================================================
+   5. AI RESPONSE TYPOGRAPHY SPECIFICATION
+   ================================================== */
+.ai-response-prose {
+  font-family: var(--font-hind-siliguri), var(--font-geist-sans), sans-serif;
+  font-size: 15px;
+  line-height: 1.65;
+  letter-spacing: 0.3px;
+  color: var(--text-primary);
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.ai-response-prose p {
+  margin-top: 0;
+  margin-bottom: 0.875rem;
+}
+
+.ai-response-prose p:last-child {
+  margin-bottom: 0;
+}
+
+.ai-response-prose strong,
+.ai-response-prose b {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ai-response-prose em,
+.ai-response-prose i {
+  font-family: var(--font-lora), Georgia, serif;
+  font-style: italic;
+}
+
+/* ==================================================
+   6. TYPOGRAPHY HIERARCHY UTILITIES
+   ================================================== */
+.typography-display {
+  font-family: var(--font-ui);
+  font-size: 2rem;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.typography-heading {
+  font-family: var(--font-ui);
+  font-size: 1.5rem;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.typography-subheading {
+  font-family: var(--font-ui);
+  font-size: 1.125rem;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.typography-body {
+  font-family: var(--font-ui);
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  font-weight: 400;
+}
+
+.typography-body-small {
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+.typography-label {
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  line-height: 1.25;
+  font-weight: 500;
+}
+
+.typography-caption {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  line-height: 1.3;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.typography-metadata {
+  font-family: var(--font-ui);
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+
+.typography-button {
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  line-height: 1.2;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.typography-input {
+  font-family: var(--font-ui);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.typography-code {
+  font-family: var(--font-code);
+  font-size: 0.84375rem;
+  line-height: 1.6;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  tab-size: 2;
+}
+
+.typography-code-inline {
+  font-family: var(--font-code);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  font-weight: 500;
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--surface-soft);
+  color: var(--text-primary);
+}
+
+/* ==================================================
+   7. ACCESSIBILITY FOCUS & INTERACTION STATES
+   ================================================== */
+:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.focus-ring-kleava {
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.focus-ring-kleava:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--accent-primary);
+}
+
+/* ==================================================
+   8. SCROLLBAR UTILITIES
+   ================================================== */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
