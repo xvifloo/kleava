@@ -38,3 +38,30 @@ export interface ChatSession {
 }
 
 export type ChatTimeGroup = 'Pinned' | 'Today' | 'Yesterday' | 'Last 7 Days' | 'Older';
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email?: string;
+  avatarUrl?: string;
+  plan?: string;
+}
+
+export type SettingsSection =
+  | 'general'
+  | 'models'
+  | 'memory'
+  | 'notifications'
+  | 'personalization'
+  | 'privacy'
+  | 'data'
+  | 'shortcuts'
+  | 'about';
+
+export interface ComposerAttachment {
+  id: string;
+  file: File;
+  name: string;
+  size: number;
+  type: string;
+}

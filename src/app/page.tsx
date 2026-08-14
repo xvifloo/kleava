@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ChatSession, UserProfile as UserProfileType } from '@/types';
+import { ChatSession, UserProfile as UserProfileType, ComposerAttachment } from '@/types';
 import { ApplicationShell } from '@/components/layout/application-shell';
 import { WelcomeState } from '@/components/modules/welcome-state';
 import { NavTrigger } from '@/components/core/nav-trigger';
 import { NavPanel } from '@/components/layout/nav-panel';
+import { ChatComposer } from '@/components/composer/chat-composer';
 
 // Mock User Profile
 const CURRENT_USER: UserProfileType = {
@@ -22,35 +23,35 @@ const INITIAL_CHATS: ChatSession[] = [
     title: 'Landing Page redesign',
     isPinned: true,
     pinnedOrder: 0,
-    createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(), // 2 hours ago
+    createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
   },
   {
     id: 'c2',
     title: 'API architecture discussion',
     isPinned: false,
-    createdAt: new Date(Date.now() - 1000 * 60 * 300).toISOString(), // 5 hours ago
+    createdAt: new Date(Date.now() - 1000 * 60 * 300).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 300).toISOString(),
   },
   {
     id: 'c3',
     title: 'বাংলা প্রম্পট অপটিমাইজেশন',
     isPinned: false,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(), // Yesterday
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
   },
   {
     id: 'c4',
     title: 'Authentication flow setup',
     isPinned: false,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4).toISOString(), // 4 days ago
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4).toISOString(),
   },
 ];
 
 /**
  * Root Application Canvas:
- * Orchestrates the Shell, NavTrigger, and NavPanel with full Navigation & Settings flow.
+ * Orchestrates the Shell, NavTrigger, NavPanel, WelcomeState, and ChatComposer.
  */
 export default function HomePage() {
   const [isNavOpen, setIsNavOpen] = useState(false);
@@ -58,17 +59,27 @@ export default function HomePage() {
   const [activeChatId, setActiveChatId] = useState<string | undefined>(undefined);
   const [chats, setChats] = useState<ChatSession[]>(INITIAL_CHATS);
 
-  // New Chat Handler
-  const handleNewChat = () => {
+  // Send message submission handler (with all parameters actively consumed)
+  const handleSendMessage = (message: string, attachments: ComposerAttachment[], model: string) => {
+    const hasAttachments = attachments.length > 0;
+    const initialTitle = message.trim() || (hasAttachments ? `Attachment: ${attachments[0].name}` : 'New Conversation');
+
     const newChat: ChatSession = {
       id: `chat-${Date.now()}`,
-      title: 'New Conversation',
+      title: initialTitle.slice(0, 30),
       isPinned: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      projectId: model, // associate selected model ID
     };
+
     setChats((prev) => [newChat, ...prev]);
     setActiveChatId(newChat.id);
+  };
+
+  // New Chat Handler
+  const handleNewChat = () => {
+    setActiveChatId(undefined);
     setActiveView('chat');
   };
 
@@ -137,7 +148,7 @@ export default function HomePage() {
         <div className="w-[38px] h-[38px]" /> {/* Spacer for top-right balance */}
       </ApplicationShell.Top>
 
-      {/* Completed Navigation Panel with User Profile & Settings */}
+      {/* Floating Navigation Panel */}
       <NavPanel
         isOpen={isNavOpen}
         onClose={() => setIsNavOpen(false)}
@@ -158,13 +169,15 @@ export default function HomePage() {
         onNewChat={handleNewChat}
       />
 
-      {/* Main Region: Houses the dynamic Welcome / Initial State */}
+      {/* Main Region: Dynamic Welcome / Initial Canvas */}
       <ApplicationShell.Main>
         <WelcomeState userName={CURRENT_USER.name} />
       </ApplicationShell.Main>
 
-      {/* Bottom Region: Reserved for Chat Composer (Phase 02) */}
-      <ApplicationShell.Bottom />
+      {/* Bottom Region: Dynamic Adaptive Chat Composer */}
+      <ApplicationShell.Bottom>
+        <ChatComposer onSend={handleSendMessage} />
+      </ApplicationShell.Bottom>
     </ApplicationShell>
   );
 }
