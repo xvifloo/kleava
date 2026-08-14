@@ -30,7 +30,11 @@ export interface ChatSession {
   id: string;
   title: string;
   isPinned: boolean;
+  isArchived?: boolean;
+  pinnedOrder?: number;
   createdAt: string;
   updatedAt: string;
   projectId?: string;
 }
+
+export type ChatTimeGroup = 'Pinned' | 'Today' | 'Yesterday' | 'Last 7 Days' | 'Older';
