@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 
 export interface ChatItemActionsProps {
   chatId: string;
+  chatTitle: string;
   isPinned: boolean;
   isOpen: boolean;
   onOpenToggle: (chatId: string) => void;
@@ -17,11 +18,12 @@ export interface ChatItemActionsProps {
 }
 
 /**
- * ChatItemActions: Two-dot action trigger (:) with smooth morphing to (● ●)
- * and accessible contextual action popover.
+ * ChatItemActions: Two-dot action trigger (:) that morphs to horizontal (● ●)
+ * upon revealing contextual menu actions (Pin/Unpin, Rename, Archive, Delete).
  */
 export function ChatItemActions({
   chatId,
+  chatTitle,
   isPinned,
   isOpen,
   onOpenToggle,
@@ -70,7 +72,7 @@ export function ChatItemActions({
       {/* Signature Two-Dot Action Button */}
       <button
         type="button"
-        aria-label={isOpen ? 'Close chat actions' : 'Open chat actions'}
+        aria-label={`Actions for ${chatTitle}`}
         aria-expanded={isOpen}
         onClick={(e) => {
           e.stopPropagation();
@@ -78,7 +80,7 @@ export function ChatItemActions({
           setShowDeleteConfirm(false);
         }}
         className={cn(
-          'w-6 h-6 rounded-kleava-sm flex items-center justify-center',
+          'w-6 h-6 rounded-kleava-sm flex items-center justify-center select-none',
           'text-kleava-text-secondary hover:text-kleava-accent',
           'hover:bg-kleava-surface-soft/80 transition-colors duration-150',
           'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-kleava-accent',
@@ -109,15 +111,16 @@ export function ChatItemActions({
         </div>
       </button>
 
-      {/* Contextual Action Window / Popover */}
+      {/* Contextual Action Window / Popover (Origin-Aware) */}
       {isOpen && (
         <div
           role="menu"
+          aria-label={`Options for ${chatTitle}`}
           className={cn(
             'absolute right-0 top-7 z-50 min-w-[145px]',
             'bg-kleava-surface text-kleava-text-primary',
             'rounded-kleava-md border border-kleava-border-subtle/80',
-            'shadow-kleava-floating p-1 flex flex-col space-y-0.5',
+            'shadow-kleava-floating p-1 flex flex-col space-y-0.5 select-none',
             'animate-in fade-in zoom-in-95 duration-150 origin-top-right'
           )}
           onClick={(e) => e.stopPropagation()}

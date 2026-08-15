@@ -2,8 +2,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Check, Sparkles, Cpu, Lock } from 'lucide-react';
-import { ModelProfile, ModelGroup } from '@/types';
-import { MODELS_REGISTRY, getModelById } from '@/config/models';
+import { useSettings } from '@/state/settings-context';
+import { ModelGroup } from '@/types';
 import { cn } from '@/lib/utils';
 
 export interface ModelSelectorProps {
@@ -14,8 +14,8 @@ export interface ModelSelectorProps {
 }
 
 /**
- * ModelSelector: Dedicated multi-model picker popover with capability badges,
- * categorized groupings, and keyboard accessibility.
+ * ModelSelector: Dedicated multi-model picker popover synchronized with
+ * global Settings state and custom user-added model profiles.
  */
 export function ModelSelector({
     selectedModelId,
@@ -23,10 +23,11 @@ export function ModelSelector({
     disabled = false,
     className,
 }: ModelSelectorProps) {
+    const { models } = useSettings();
     const [isOpen, setIsOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
-    const currentModel = getModelById(selectedModelId);
+    const currentModel = models.find((m) => m.id === selectedModelId) || models[0];
 
     // Close on outside click or Escape
     useEffect(() => {
@@ -51,8 +52,7 @@ export function ModelSelector({
         };
     }, [isOpen]);
 
-    // Group models by category
-    const groups: ModelGroup[] = ['Recommended', 'Kleava', 'External Providers'];
+    const groups: ModelGroup[] = ['Recommended', 'Kleava', 'Custom', 'External Providers'];
 
     return (
         <div className={cn('relative inline-flex items-center', className)} ref={menuRef}>
@@ -64,7 +64,7 @@ export function ModelSelector({
                 disabled={disabled}
                 onClick={() => setIsOpen(!isOpen)}
                 className={cn(
-                    'h-7 px-2.5 rounded-kleava-control flex items-center space-x-1.5',
+                    'h-7 px-2.5 rounded-kleava-control flex items-center space-x-1.5 font-ui',
                     'bg-kleava-surface-soft text-kleava-text-primary text-xs font-medium',
                     'hover:bg-kleava-surface-light hover:text-kleava-accent transition-colors',
                     'border border-kleava-border-subtle/50',
@@ -72,12 +72,12 @@ export function ModelSelector({
                     disabled && 'opacity-60 cursor-not-allowed'
                 )}
             >
-                {currentModel.id === 'auto' ? (
+                {currentModel?.id === 'auto' ? (
                     <Sparkles className="w-3 h-3 text-kleava-accent flex-shrink-0" />
                 ) : (
                     <Cpu className="w-3 h-3 text-kleava-text-secondary flex-shrink-0" />
                 )}
-                <span className="truncate max-w-[90px] sm:max-w-[120px]">{currentModel.name}</span>
+                <span className="truncate max-w-[90px] sm:max-w-[120px]">{currentModel?.name || 'Kleava 0.7'}</span>
                 <ChevronDown className="w-3 h-3 text-kleava-text-secondary flex-shrink-0" />
             </button>
 
@@ -87,7 +87,7 @@ export function ModelSelector({
                     role="menu"
                     aria-label="AI Model Options"
                     className={cn(
-                        'absolute left-0 bottom-9 z-50',
+                        'absolute left-0 bottom-9 z-50 font-ui',
                         'w-[270px] sm:w-[290px] max-h-[320px] overflow-y-auto scrollbar-none',
                         'bg-kleava-surface text-kleava-text-primary',
                         'rounded-kleava-md border border-kleava-border-subtle/80',
@@ -96,7 +96,7 @@ export function ModelSelector({
                     )}
                 >
                     {groups.map((groupName) => {
-                        const modelsInGroup = MODELS_REGISTRY.filter((m) => m.group === groupName);
+                        const modelsInGroup = models.filter((m) => m.group === groupName);
                         if (modelsInGroup.length === 0) return null;
 
                         return (
@@ -110,7 +110,7 @@ export function ModelSelector({
 
                                 {/* Model Options */}
                                 {modelsInGroup.map((model) => {
-                                    const isSelected = model.id === currentModel.id;
+                                    const isSelected = model.id === currentModel?.id;
 
                                     return (
                                         <button
@@ -140,6 +140,11 @@ export function ModelSelector({
                                                     {model.badge && (
                                                         <span className="typography-metadata text-[9px] uppercase px-1 py-0.2 rounded bg-kleava-accent/15 text-kleava-accent font-semibold">
                                                             {model.badge}
+                                                        </span>
+                                                    )}
+                                                    {model.isCustom && (
+                                                        <span className="typography-metadata text-[9px] uppercase px-1 py-0.2 rounded bg-blue-50 text-blue-600 font-semibold">
+                                                            Custom
                                                         </span>
                                                     )}
                                                     {!model.isAvailable && (

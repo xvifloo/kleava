@@ -29,8 +29,9 @@ export interface NavPanelProps {
 }
 
 /**
- * NavPanel: Complete Floating Workspace Navigation Panel.
- * Supports primary navigation, search, recent chats, user badge, and settings view.
+ * NavPanel: Compact floating navigation window expanding from top-left origin.
+ * Houses branding, primary navigation items, real-time chat search, chronological recent chats,
+ * sticky bottom-anchored user profile footer, and settings view shell.
  */
 export function NavPanel({
   isOpen,
@@ -50,24 +51,27 @@ export function NavPanel({
   className,
 }: NavPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [currentView, setCurrentView] = useState<'nav' | 'settings'>('nav');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Hierarchical Escape key management
+  // Hierarchical Escape key listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
-        if (currentView === 'settings') {
+        if (searchQuery.trim().length > 0) {
+          setSearchQuery('');
+        } else if (currentView === 'settings') {
           setCurrentView('nav');
         } else {
           onClose();
-          setSearchQuery('');
         }
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, currentView, onClose]);
+  }, [isOpen, currentView, searchQuery, onClose]);
 
   if (!isOpen) return null;
 
@@ -75,7 +79,7 @@ export function NavPanel({
     <>
       {/* Ambient Click-Away Dismissal Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/[0.04] transition-opacity duration-200"
+        className="fixed inset-0 z-40 bg-black/[0.04] transition-opacity duration-200 select-none"
         aria-hidden="true"
         onClick={() => {
           onClose();
@@ -84,16 +88,17 @@ export function NavPanel({
         }}
       />
 
-      {/* Floating Navigation Window */}
+      {/* Floating Navigation Window (Origin: Top-Left) */}
       <nav
         ref={panelRef}
         role="dialog"
+        aria-modal="false"
         aria-label="Workspace navigation"
         className={cn(
           'fixed top-3 left-3 sm:top-4 sm:left-4 z-50',
           'w-[calc(100vw-24px)] sm:w-[290px] max-w-[320px]',
           'h-[calc(100dvh-24px)] max-h-[560px] flex flex-col select-none',
-          'bg-kleava-surface text-kleava-text-primary',
+          'bg-kleava-surface text-kleava-text-primary font-ui',
           'rounded-kleava-lg border border-kleava-border-subtle/80',
           'shadow-kleava-floating p-3',
           'transform-gpu origin-top-left',
@@ -102,12 +107,12 @@ export function NavPanel({
         )}
       >
         {currentView === 'settings' ? (
-          /* Settings View Container */
+          /* Settings View Shell Container */
           <SettingsView onBack={() => setCurrentView('nav')} />
         ) : (
           /* Main Navigation View */
           <div className="w-full h-full flex flex-col">
-            {/* 1. Top Header: Kleava Branding */}
+            {/* 1. Top Header: Kleava Branding Row */}
             <div className="flex items-center justify-between pb-2.5 border-b border-kleava-border-subtle/50 mb-2 flex-shrink-0">
               <div className="flex items-center space-x-2.5">
                 <div className="w-6 h-6 relative flex items-center justify-center flex-shrink-0">
@@ -122,17 +127,17 @@ export function NavPanel({
                       target.style.display = 'none';
                       if (target.parentElement) {
                         target.parentElement.innerHTML =
-                          '<span class="w-3 h-3 rounded-full bg-kleava-accent inline-block"></span>';
+                          '<span class="w-3.5 h-3.5 rounded-full bg-kleava-accent inline-block"></span>';
                       }
                     }}
                   />
                 </div>
-                <span className="typography-label font-semibold tracking-tight text-kleava-text-primary">
+                <span className="typography-label font-semibold text-sm tracking-tight text-kleava-text-primary">
                   Kleava
                 </span>
               </div>
 
-              <span className="typography-metadata text-kleava-text-secondary uppercase px-1.5 py-0.5 rounded bg-kleava-surface-soft text-[10px]">
+              <span className="typography-metadata text-kleava-text-secondary uppercase px-1.5 py-0.5 rounded bg-kleava-surface-soft text-[10px] font-medium tracking-wider">
                 AI Workspace
               </span>
             </div>
@@ -142,6 +147,7 @@ export function NavPanel({
               {/* New Chat */}
               <button
                 type="button"
+                aria-label="Start new chat"
                 onClick={() => {
                   onNewChat?.();
                   onClose();
@@ -150,8 +156,8 @@ export function NavPanel({
                 className={cn(
                   'w-full flex items-center space-x-3 px-3 py-2 rounded-kleava-md',
                   'text-left typography-label text-kleava-text-primary',
-                  'bg-kleava-surface-light/60 hover:bg-kleava-surface-light',
-                  'border border-kleava-accent/20 hover:border-kleava-accent/40',
+                  'bg-kleava-surface-light/70 hover:bg-kleava-surface-light',
+                  'border border-kleava-accent/25 hover:border-kleava-accent/40',
                   'transition-all duration-150 active:scale-[0.98]',
                   'focus-ring-kleava'
                 )}
@@ -165,6 +171,7 @@ export function NavPanel({
               {/* Chat */}
               <button
                 type="button"
+                aria-label="Open chat workspace"
                 onClick={() => {
                   onNavigate?.('chat');
                   onClose();
@@ -185,6 +192,7 @@ export function NavPanel({
               {/* Project */}
               <button
                 type="button"
+                aria-label="Open project workspace"
                 onClick={() => {
                   onNavigate?.('project');
                   onClose();
@@ -205,14 +213,19 @@ export function NavPanel({
 
             {/* 3. Search Chats Bar */}
             <div className="mb-2 flex-shrink-0">
-              <ChatSearch value={searchQuery} onChange={setSearchQuery} />
+              <ChatSearch
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={setSearchQuery}
+                onClear={() => setSearchQuery('')}
+              />
             </div>
 
             {/* Separator */}
             <div className="border-t border-kleava-border-subtle/50 mb-2 flex-shrink-0" />
 
             {/* 4. Flexible Scrollable Recent Chats Container */}
-            <div className="flex-1 min-h-[100px] overflow-y-auto pr-0.5">
+            <div className="flex-1 min-h-[120px] overflow-y-auto pr-0.5 scrollbar-none">
               <ChatList
                 chats={chats}
                 searchQuery={searchQuery}
@@ -233,7 +246,11 @@ export function NavPanel({
 
             {/* 5. Bottom Anchored User Profile & Settings Trigger */}
             <div className="mt-2 pt-2 border-t border-kleava-border-subtle/50 flex-shrink-0">
-              <UserProfile user={user} onOpenSettings={() => setCurrentView('settings')} />
+              <UserProfile
+                user={user}
+                onOpenSettings={() => setCurrentView('settings')}
+                onSignIn={() => setCurrentView('settings')}
+              />
             </div>
           </div>
         )}

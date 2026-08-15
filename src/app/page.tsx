@@ -10,9 +10,9 @@ import {
 } from '@/types';
 import { startAiStream, StreamController } from '@/lib/ai-stream';
 import { ApplicationShell } from '@/components/layout/application-shell';
+import { BrandHeader } from '@/components/layout/brand-header';
 import { WelcomeState } from '@/components/modules/welcome-state';
 import { ConversationView } from '@/components/messages/conversation-view';
-import { NavTrigger } from '@/components/core/nav-trigger';
 import { NavPanel } from '@/components/layout/nav-panel';
 import { ChatComposer } from '@/components/composer/chat-composer';
 
@@ -59,7 +59,7 @@ const INITIAL_CHATS: ChatSession[] = [
 
 /**
  * Root Application Canvas:
- * Orchestrates Navigation, Conversation stream with CodeBlock support, and Composer.
+ * Orchestrates Top BrandHeader, Navigation Panel with Search & Settings, and Chat Workspace.
  */
 export default function HomePage() {
   const [isNavOpen, setIsNavOpen] = useState(false);
@@ -72,7 +72,20 @@ export default function HomePage() {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [currentlySpeakingId, setCurrentlySpeakingId] = useState<string | null>(null);
 
+  const navTriggerRef = useRef<HTMLButtonElement>(null);
   const activeStreamControllerRef = useRef<StreamController | null>(null);
+
+  // Global Ctrl/Cmd + K shortcut listener to open search
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsNavOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   // Clean stream and audio on unmount
   useEffect(() => {
@@ -102,6 +115,10 @@ export default function HomePage() {
       };
       setChats((prev) => [newChat, ...prev]);
       setActiveChatId(currentChatId);
+    } else {
+      setChats((prev) =>
+        prev.map((c) => (c.id === currentChatId ? { ...c, updatedAt: new Date().toISOString() } : c))
+      );
     }
 
     // 2. Append user message
@@ -307,25 +324,29 @@ export default function HomePage() {
     });
   };
 
+  // Close Navigation with focus restoration to trigger button
+  const handleCloseNav = () => {
+    setIsNavOpen(false);
+    navTriggerRef.current?.focus();
+  };
+
   const hasMessages = messages.length > 0;
 
   return (
     <ApplicationShell>
-      {/* Top Region: Houses the NavTrigger in top-left position */}
-      <ApplicationShell.Top className="justify-between">
-        <div className="relative">
-          <NavTrigger
-            isOpen={isNavOpen}
-            onToggle={(open) => setIsNavOpen(open)}
-          />
-        </div>
-        <div className="w-[38px] h-[38px]" /> {/* Spacer for top-right balance */}
+      {/* Top Region: Top-Left Two-Dot Trigger & Top-Right xviFlooPm.svg */}
+      <ApplicationShell.Top>
+        <BrandHeader
+          isNavOpen={isNavOpen}
+          onToggleNav={(open) => setIsNavOpen(open)}
+          triggerRef={navTriggerRef}
+        />
       </ApplicationShell.Top>
 
-      {/* Floating Navigation Panel */}
+      {/* Floating Navigation Window with Settings Shell */}
       <NavPanel
         isOpen={isNavOpen}
-        onClose={() => setIsNavOpen(false)}
+        onClose={handleCloseNav}
         activeItem={activeView}
         chats={chats}
         user={CURRENT_USER}

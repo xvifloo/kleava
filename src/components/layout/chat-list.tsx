@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Pin, GripVertical } from 'lucide-react';
 import { ChatSession, ChatTimeGroup } from '@/types';
 import { groupChatsByDate, formatRelativeTime } from '@/lib/date-utils';
+import { highlightMatch, matchesChatQuery } from '@/lib/search-utils';
 import { ChatItemActions } from '@/components/layout/chat-item-actions';
 import { cn } from '@/lib/utils';
 
@@ -21,6 +22,11 @@ export interface ChatListProps {
   className?: string;
 }
 
+/**
+ * ChatList: Grouped recent conversation list supporting chronological categories
+ * (Pinned, Today, Yesterday, Previous 7 Days, Older), HTML5 drag reorder, inline rename,
+ * subtle search match highlighting, and two-dot contextual action menus.
+ */
 export function ChatList({
   chats,
   searchQuery = '',
@@ -39,15 +45,16 @@ export function ChatList({
   const [draggedChatId, setDraggedChatId] = useState<string | null>(null);
   const [openMenuChatId, setOpenMenuChatId] = useState<string | null>(null);
 
-  // Filter chats matching query
-  const query = searchQuery.trim().toLowerCase();
-  const filteredChats = query
-    ? chats.filter((c) => c.title.toLowerCase().includes(query))
-    : chats;
+  // Memoized search filtering
+  const filteredChats = useMemo(() => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) return chats;
+    return chats.filter((c) => matchesChatQuery(c, trimmed));
+  }, [chats, searchQuery]);
 
-  const groups = groupChatsByDate(filteredChats);
-  const groupKeys: ChatTimeGroup[] = ['Pinned', 'Today', 'Yesterday', 'Last 7 Days', 'Older'];
-  const hasChats = Object.values(groups).some((g) => g.length > 0);
+  const groups = useMemo(() => groupChatsByDate(filteredChats), [filteredChats]);
+  const groupKeys: ChatTimeGroup[] = ['Pinned', 'Today', 'Yesterday', 'Previous 7 Days', 'Older'];
+  const hasResults = Object.values(groups).some((g) => g.length > 0);
 
   // Start Rename
   const handleStartRename = (chat: ChatSession) => {
@@ -95,18 +102,18 @@ export function ChatList({
     setDraggedChatId(null);
   };
 
-  // No Chats or Empty Search Result
-  if (!hasChats) {
+  // Empty Search / No Chats State
+  if (!hasResults) {
     return (
-      <div className="py-8 text-center px-4 flex flex-col items-center justify-center space-y-2">
+      <div className="py-8 text-center px-4 flex flex-col items-center justify-center space-y-2 select-none">
         <p className="typography-caption text-kleava-text-secondary">
-          {query ? 'No chats found.' : 'No recent chats yet.'}
+          {searchQuery.trim() ? `No chats found for "${searchQuery}"` : 'No recent chats yet.'}
         </p>
-        {query && onClearSearch && (
+        {searchQuery.trim() && onClearSearch && (
           <button
             type="button"
             onClick={onClearSearch}
-            className="typography-metadata text-kleava-accent hover:underline focus:outline-none"
+            className="typography-metadata text-xs text-kleava-accent hover:underline focus-ring-kleava"
           >
             Clear search
           </button>
@@ -116,7 +123,7 @@ export function ChatList({
   }
 
   return (
-    <div className={cn('w-full flex flex-col space-y-3.5 overflow-y-auto scrollbar-none', className)}>
+    <div className={cn('w-full flex flex-col space-y-3.5 select-none', className)}>
       {groupKeys.map((groupKey) => {
         const chatItems = groups[groupKey];
         if (chatItems.length === 0) return null; // Suppress empty groups
@@ -125,9 +132,9 @@ export function ChatList({
 
         return (
           <div key={groupKey} className="flex flex-col space-y-1">
-            {/* Group Header */}
+            {/* Group Heading */}
             <div className="px-2.5 py-0.5 flex items-center justify-between">
-              <span className="typography-metadata uppercase tracking-wider text-[10.5px] font-semibold text-kleava-text-secondary/80">
+              <span className="typography-metadata uppercase tracking-wider text-[10px] font-semibold text-kleava-text-secondary/70">
                 {groupKey}
               </span>
               {isPinnedGroup && (
@@ -135,7 +142,7 @@ export function ChatList({
               )}
             </div>
 
-            {/* Chat Items in Group */}
+            {/* Chat Items List */}
             <div className="flex flex-col space-y-0.5">
               {chatItems.map((chat) => {
                 const isActive = chat.id === activeChatId;
@@ -146,15 +153,16 @@ export function ChatList({
                 return (
                   <div
                     key={chat.id}
-                    draggable={isPinnedGroup && !isEditing && !query}
+                    draggable={isPinnedGroup && !isEditing && !searchQuery.trim()}
                     onDragStart={(e) => handleDragStart(e, chat.id)}
-                    onDragOver={(e) => isPinnedGroup && !query && handleDragOver(e, chat.id)}
+                    onDragOver={(e) => isPinnedGroup && !searchQuery.trim() && handleDragOver(e, chat.id)}
                     onDragEnd={handleDragEnd}
                     onClick={() => !isEditing && onSelectChat(chat.id)}
+                    title={chat.title}
                     className={cn(
                       'group relative w-full px-2.5 py-1.5 rounded-kleava-md',
                       'flex items-center justify-between space-x-2',
-                      'transition-colors duration-150 cursor-pointer select-none',
+                      'transition-colors duration-150 cursor-pointer',
                       isActive
                         ? 'bg-kleava-surface-soft text-kleava-text-primary font-medium'
                         : 'text-kleava-text-secondary hover:text-kleava-text-primary hover:bg-kleava-surface-light/50',
@@ -162,12 +170,12 @@ export function ChatList({
                       'focus-ring-kleava'
                     )}
                   >
-                    {/* Drag Handle for Pinned Items (disabled during search) */}
-                    {isPinnedGroup && !query && (
+                    {/* Drag Handle for Pinned Items (Hidden during active search) */}
+                    {isPinnedGroup && !searchQuery.trim() && (
                       <GripVertical className="w-3 h-3 text-kleava-text-secondary/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing flex-shrink-0" />
                     )}
 
-                    {/* Chat Title & Timestamp */}
+                    {/* Chat Title with Search Match Highlighting & Relative Timestamp */}
                     <div className="flex-1 min-w-0 pr-1">
                       {isEditing ? (
                         <input
@@ -186,22 +194,23 @@ export function ChatList({
                       ) : (
                         <div className="flex flex-col">
                           <span className="typography-label text-xs truncate font-normal leading-tight text-kleava-text-primary">
-                            {chat.title}
+                            {highlightMatch(chat.title, searchQuery)}
                           </span>
-                          <span className="typography-metadata text-[10px] text-kleava-text-secondary mt-0.5">
+                          <span className="typography-metadata text-[10px] text-kleava-text-secondary/80 mt-0.5">
                             {formatRelativeTime(chat.updatedAt)}
                           </span>
                         </div>
                       )}
                     </div>
 
-                    {/* Two-Dot Action Control */}
+                    {/* Signature Two-Dot Action Control */}
                     <div
                       className="opacity-80 group-hover:opacity-100 transition-opacity flex-shrink-0"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <ChatItemActions
                         chatId={chat.id}
+                        chatTitle={chat.title}
                         isPinned={chat.isPinned}
                         isOpen={isMenuOpen}
                         onOpenToggle={(id) =>

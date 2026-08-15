@@ -8,6 +8,16 @@ export type ModelCapability = 'speed' | 'reasoning' | 'coding' | 'vision';
 
 export type ModelGroup = 'Recommended' | 'Kleava' | 'External Providers' | 'Custom';
 
+export type ResponseLengthMode = 'short' | 'balanced' | 'long';
+
+export interface ModelGenerationConfig {
+  temperature: number; // 0.0 to 1.0
+  responseLength: ResponseLengthMode;
+  streaming: boolean;
+  reasoningMode: boolean;
+  visionEnabled: boolean;
+}
+
 export interface ModelProfile {
   id: string;
   name: string;
@@ -18,20 +28,38 @@ export interface ModelProfile {
   badge?: string;
   isDefault?: boolean;
   isAvailable: boolean;
+  isCustom?: boolean;
   contextWindow?: number;
+  apiKey?: string;
+  baseUrl?: string;
   requiresApiKey?: boolean;
   isAutoRoutable?: boolean;
 }
 
-export type MemoryScope = 'global' | 'project' | 'chat' | 'temporary';
+export type MemoryScope = 'Global' | 'Project' | 'Chat';
+
+export type MemoryCategory =
+  | 'Preference'
+  | 'Project'
+  | 'Workflow'
+  | 'Context'
+  | 'Instruction'
+  | 'Other';
+
+export type MemorySource = 'Manual' | 'AI Suggested' | 'Imported' | 'System';
 
 export interface MemoryRecord {
   id: string;
-  scope: MemoryScope;
-  key: string;
+  title: string;
   content: string;
+  category: MemoryCategory;
+  source: MemorySource;
+  scope: MemoryScope;
+  enabled: boolean;
   createdAt: string;
   updatedAt: string;
+  projectId?: string;
+  chatId?: string;
 }
 
 export interface ChatSession {
@@ -45,7 +73,7 @@ export interface ChatSession {
   projectId?: string;
 }
 
-export type ChatTimeGroup = 'Pinned' | 'Today' | 'Yesterday' | 'Last 7 Days' | 'Older';
+export type ChatTimeGroup = 'Pinned' | 'Today' | 'Yesterday' | 'Previous 7 Days' | 'Older';
 
 export interface UserProfile {
   id: string;
@@ -57,7 +85,7 @@ export interface UserProfile {
 
 export type SettingsSection =
   | 'general'
-  | 'models'
+  | 'ai-models'
   | 'memory'
   | 'notifications'
   | 'personalization'
@@ -65,6 +93,42 @@ export type SettingsSection =
   | 'data'
   | 'shortcuts'
   | 'about';
+
+export type ThemeMode = 'light' | 'dark' | 'system';
+export type FontSizeMode = 'small' | 'default' | 'large';
+export type LanguageCode = 'en' | 'bn';
+
+export interface GeneralSettings {
+  theme: ThemeMode;
+  accentColor: string;
+  language: LanguageCode;
+  fontSize: FontSizeMode;
+  autoSave: boolean;
+  compactMode: boolean;
+  reduceMotion: boolean;
+  soundEffects: boolean;
+}
+
+export interface NotificationSettings {
+  enabled: boolean; // Master toggle
+  chatActivity: boolean;
+  taskCompleted: boolean;
+  errorAlerts: boolean;
+  systemUpdates: boolean;
+  memoryUpdates: boolean;
+  modelUpdates: boolean;
+  soundEffects: boolean;
+  voiceAutoPlay: boolean;
+  desktopAlerts: boolean;
+}
+
+export type NotificationType =
+  | 'chatActivity'
+  | 'taskCompleted'
+  | 'errorAlerts'
+  | 'systemUpdates'
+  | 'memoryUpdates'
+  | 'modelUpdates';
 
 export interface ComposerAttachment {
   id: string;
