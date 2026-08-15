@@ -2,18 +2,33 @@
 
 import React from 'react';
 import { ChevronDown, AlertCircle, RotateCcw } from 'lucide-react';
-import { ChatMessage, MessageFeedback } from '@/types';
+import {
+    ChatMessage,
+    MessageFeedback,
+    CandidateMemorySuggestion,
+    MemoryCategory,
+    MemoryScope,
+} from '@/types';
 import { UserMessage } from '@/components/messages/user-message';
 import { AssistantMessage } from '@/components/messages/assistant-message';
+import { MemorySuggestionCard } from '@/components/messages/memory-suggestion-card';
 import { ConversationLoading } from '@/components/messages/conversation-loading';
 import { useConversationScroll } from '@/hooks/use-conversation-scroll';
 import { cn } from '@/lib/utils';
 
 export interface ConversationViewProps {
     messages: ChatMessage[];
+    candidateSuggestions?: CandidateMemorySuggestion[];
     isLoadingSession?: boolean;
     sessionError?: string | null;
     currentlySpeakingId?: string | null;
+    onAcceptMemorySuggestion?: (
+        id: string,
+        content: string,
+        type: MemoryCategory,
+        scope: MemoryScope
+    ) => void;
+    onDismissMemorySuggestion?: (id: string) => void;
     onStartSpeaking?: (messageId: string) => void;
     onStopSpeaking?: () => void;
     onRetrySession?: () => void;
@@ -25,13 +40,16 @@ export interface ConversationViewProps {
 
 /**
  * ConversationView: Scrollable conversation stream with maximum readable width (720px),
- * intelligent auto-scroll hook, scroll-to-bottom affordance button, and session error boundaries.
+ * intelligent auto-scroll hook, candidate memory suggestions, and session error boundaries.
  */
 export function ConversationView({
     messages,
+    candidateSuggestions = [],
     isLoadingSession = false,
     sessionError = null,
     currentlySpeakingId = null,
+    onAcceptMemorySuggestion,
+    onDismissMemorySuggestion,
     onStartSpeaking,
     onStopSpeaking,
     onRetrySession,
@@ -48,7 +66,7 @@ export function ConversationView({
         scrollToBottom,
     } = useConversationScroll({
         threshold: 90,
-        dependency: messages,
+        dependency: [messages, candidateSuggestions],
     });
 
     return (
@@ -92,7 +110,7 @@ export function ConversationView({
                         </div>
                     )}
 
-                    {/* Message List with Stable Deterministic Keys */}
+                    {/* Message Stream */}
                     {messages.map((msg) => {
                         if (msg.role === 'user') {
                             return (
@@ -118,6 +136,19 @@ export function ConversationView({
                         }
                         return null;
                     })}
+
+                    {/* Candidate Memory Suggestions Row */}
+                    {candidateSuggestions.map((sugg) => (
+                        <div key={sugg.id} className="w-full flex justify-end">
+                            <MemorySuggestionCard
+                                suggestion={sugg}
+                                onAccept={(id, content, type, scope) =>
+                                    onAcceptMemorySuggestion?.(id, content, type, scope)
+                                }
+                                onDismiss={(id) => onDismissMemorySuggestion?.(id)}
+                            />
+                        </div>
+                    ))}
 
                     {/* Bottom Anchor Reference */}
                     <div ref={bottomAnchorRef} className="h-6 flex-shrink-0" />

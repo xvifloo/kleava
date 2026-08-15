@@ -1,16 +1,26 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   ChatSession,
   UserProfile as UserProfileType,
   ComposerAttachment,
   ChatMessage,
   MessageFeedback,
+  CandidateMemorySuggestion,
+  MemoryCategory,
+  MemoryScope,
 } from '@/types';
 import { startAiStream, StreamController } from '@/lib/ai-stream';
 import { resolveEffectiveModel } from '@/lib/model-router';
 import { compileModelPayload } from '@/lib/generation-config';
+import {
+  resolveConversationMemoryContext,
+  assembleStructuredMemoryContext,
+  detectCandidateMemories,
+} from '@/lib/memory-context-engine';
+import { compilePersonalizationEnvelope } from '@/lib/personalization-engine';
+import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts';
 import { useSettings } from '@/state/settings-context';
 import { ApplicationShell } from '@/components/layout/application-shell';
 import { BrandHeader } from '@/components/layout/brand-header';
@@ -62,16 +72,29 @@ const INITIAL_CHATS: ChatSession[] = [
 
 /**
  * Root Application Canvas:
- * Orchestrates Multi-Model resolution, AI Response Configuration,
- * Top BrandHeader, Navigation Panel, and ChatComposer.
+ * Orchestrates Global Keyboard Shortcuts Dispatcher, Privacy Controls,
+ * Memory Context Engine, Multi-Model resolution, and ChatComposer.
  */
 export default function HomePage() {
-  const { models, generationConfig } = useSettings();
+  const {
+    models,
+    generationConfig,
+    personalization,
+    privacy,
+    useMemory,
+    autoSuggestMemories,
+    injectMemoryInContext,
+    memories,
+    addMemory,
+    dispatchAppNotification,
+  } = useSettings();
+
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [activeView, setActiveView] = useState<'chat' | 'project'>('chat');
   const [activeChatId, setActiveChatId] = useState<string | undefined>(undefined);
   const [chats, setChats] = useState<ChatSession[]>(INITIAL_CHATS);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [candidateSuggestions, setCandidateSuggestions] = useState<CandidateMemorySuggestion[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
@@ -79,18 +102,6 @@ export default function HomePage() {
 
   const navTriggerRef = useRef<HTMLButtonElement>(null);
   const activeStreamControllerRef = useRef<StreamController | null>(null);
-
-  // Global Ctrl/Cmd + K shortcut listener to open search
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setIsNavOpen(true);
-      }
-    };
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, []);
 
   // Clean stream and audio on unmount
   useEffect(() => {
@@ -102,46 +113,104 @@ export default function HomePage() {
     };
   }, []);
 
+  // New Chat Handler
+  const handleNewChat = useCallback(() => {
+    activeStreamControllerRef.current?.cancel();
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setCurrentlySpeakingId(null);
+    setActiveChatId(undefined);
+    setMessages([]);
+    setCandidateSuggestions([]);
+    setActiveView('chat');
+    setIsProcessing(false);
+    setIsLoadingSession(false);
+    setSessionError(null);
+  }, []);
+
+  // Cancel / Stop Generation Handler
+  const handleCancelGeneration = useCallback(() => {
+    activeStreamControllerRef.current?.cancel();
+    activeStreamControllerRef.current = null;
+    setIsProcessing(false);
+    setMessages((prev) =>
+      prev.map((msg) => (msg.status === 'streaming' ? { ...msg, status: 'cancelled' } : msg))
+    );
+  }, []);
+
+  // Global Keyboard Shortcuts Dispatcher (Ctrl+K, Ctrl+B, Ctrl+, Alt+N, /, Escape)
+  useGlobalShortcuts({
+    onSearch: () => setIsNavOpen(true),
+    onToggleNav: () => setIsNavOpen((prev) => !prev),
+    onNewChat: handleNewChat,
+    onOpenSettings: () => setIsNavOpen(true),
+    onFocusComposer: () => {
+      const textarea = document.querySelector('textarea');
+      textarea?.focus();
+    },
+    onCancelGeneration: handleCancelGeneration,
+  });
+
   // Send message submission handler
   const handleSendMessage = (message: string, attachments: ComposerAttachment[], modelId: string) => {
     if (isProcessing) return;
     const currentChatId = activeChatId || `chat-${Date.now()}`;
 
-    // 1. Resolve active model profile via clean router boundary
+    // 1. Resolve active model profile
     const effectiveModel = resolveEffectiveModel({
       modelId,
       hasAttachments: attachments.length > 0,
       models,
     });
 
-    // 2. Compile model payload with active generation parameters
+    // 2. Resolve scoped memories (Global + Project + Conversation)
+    let memoryContextEnvelope = '';
+    if (injectMemoryInContext) {
+      const selectedMemories = resolveConversationMemoryContext({
+        conversationId: currentChatId,
+        projectId: activeView === 'project' ? 'active-proj' : undefined,
+        userMessage: message,
+        memories,
+        useMemory,
+        maxLimit: 6,
+      });
+      memoryContextEnvelope = assembleStructuredMemoryContext(selectedMemories);
+    }
+
+    // 3. Compile personalization directive envelope
+    const personalizationEnvelope = compilePersonalizationEnvelope(personalization);
+
+    // 4. Compile full model payload with active generation parameters & context envelopes
     compileModelPayload({
-      prompt: message,
+      prompt: `${message}${personalizationEnvelope}${memoryContextEnvelope}`,
       config: generationConfig,
       model: effectiveModel,
     });
 
-    // 3. Create or update session in recent chats
-    if (!activeChatId) {
-      const initialTitle =
-        message.trim() || (attachments.length > 0 ? `Attachment: ${attachments[0].name}` : 'New Conversation');
-      const newChat: ChatSession = {
-        id: currentChatId,
-        title: initialTitle.slice(0, 30),
-        isPinned: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        projectId: effectiveModel.name,
-      };
-      setChats((prev) => [newChat, ...prev]);
-      setActiveChatId(currentChatId);
-    } else {
-      setChats((prev) =>
-        prev.map((c) => (c.id === currentChatId ? { ...c, updatedAt: new Date().toISOString() } : c))
-      );
+    // 5. Create or update session in recent chats (respecting saveChatHistory privacy setting)
+    if (privacy.saveChatHistory) {
+      if (!activeChatId) {
+        const initialTitle =
+          message.trim() || (attachments.length > 0 ? `Attachment: ${attachments[0].name}` : 'New Conversation');
+        const newChat: ChatSession = {
+          id: currentChatId,
+          title: initialTitle.slice(0, 30),
+          isPinned: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          projectId: effectiveModel.name,
+        };
+        setChats((prev) => [newChat, ...prev]);
+        setActiveChatId(currentChatId);
+      } else {
+        setChats((prev) =>
+          prev.map((c) => (c.id === currentChatId ? { ...c, updatedAt: new Date().toISOString() } : c))
+        );
+      }
     }
 
-    // 4. Append user message
+    // 6. Append user message
     const newUserMsg: ChatMessage = {
       id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       chatId: currentChatId,
@@ -155,7 +224,22 @@ export default function HomePage() {
 
     setMessages((prev) => [...prev, newUserMsg]);
 
-    // 5. Initiate decoupled AI Stream
+    // 7. Check for automatic candidate memory suggestions if enabled
+    if (autoSuggestMemories && useMemory) {
+      const candidate = detectCandidateMemories(message, currentChatId);
+      if (candidate) {
+        setCandidateSuggestions((prev) => [...prev, candidate]);
+        dispatchAppNotification(
+          'memoryEvents',
+          'Memory Rule Candidate',
+          `Detected preference: "${candidate.content.slice(0, 40)}..."`,
+          'info',
+          'Memory Engine'
+        );
+      }
+    }
+
+    // 8. Initiate decoupled AI Stream
     const assistantMsgId = `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const initialAssistantMsg: ChatMessage = {
       id: assistantMsgId,
@@ -190,6 +274,13 @@ export default function HomePage() {
           );
           setIsProcessing(false);
           activeStreamControllerRef.current = null;
+          dispatchAppNotification(
+            'aiResponses',
+            'Response Complete',
+            `AI generated response using ${effectiveModel.name}`,
+            'success',
+            'AI Stream Engine'
+          );
         },
         onError: () => {
           setMessages((prev) =>
@@ -201,19 +292,65 @@ export default function HomePage() {
           );
           setIsProcessing(false);
           activeStreamControllerRef.current = null;
+          dispatchAppNotification(
+            'errorsAndWarnings',
+            'Generation Failed',
+            'AI Stream request failed. You can retry the message.',
+            'error',
+            'AI Stream Engine'
+          );
         },
       }
     );
   };
 
-  // Cancel / Stop Generation Handler
-  const handleCancelGeneration = () => {
-    activeStreamControllerRef.current?.cancel();
-    activeStreamControllerRef.current = null;
-    setIsProcessing(false);
-    setMessages((prev) =>
-      prev.map((msg) => (msg.status === 'streaming' ? { ...msg, status: 'cancelled' } : msg))
+  // Clear Chat History Privacy Action
+  const handleClearAllChats = () => {
+    setChats([]);
+    setMessages([]);
+    setActiveChatId(undefined);
+    setCandidateSuggestions([]);
+    dispatchAppNotification(
+      'systemUpdates',
+      'Chat History Cleared',
+      'All local conversations have been deleted from your browser.',
+      'info',
+      'Privacy Engine'
     );
+  };
+
+  // Candidate Memory Suggestion Accept Handler
+  const handleAcceptMemorySuggestion = (
+    suggestionId: string,
+    content: string,
+    type: MemoryCategory,
+    scope: MemoryScope
+  ) => {
+    addMemory({
+      title: content.slice(0, 24) || 'Saved Rule',
+      content,
+      type,
+      source: 'AI Suggested',
+      scope,
+      usage: 'relevant',
+      pinned: false,
+      enabled: true,
+      tags: ['user-confirmed'],
+    });
+
+    setCandidateSuggestions((prev) => prev.filter((s) => s.id !== suggestionId));
+    dispatchAppNotification(
+      'memoryEvents',
+      'Memory Saved',
+      `Saved rule under ${scope} scope.`,
+      'success',
+      'Memory System'
+    );
+  };
+
+  // Candidate Memory Suggestion Dismiss Handler
+  const handleDismissMemorySuggestion = (suggestionId: string) => {
+    setCandidateSuggestions((prev) => prev.filter((s) => s.id !== suggestionId));
   };
 
   // Select Chat Session
@@ -228,6 +365,7 @@ export default function HomePage() {
     setIsLoadingSession(true);
     setSessionError(null);
     setIsProcessing(false);
+    setCandidateSuggestions([]);
 
     // Simulate session restoration
     setTimeout(() => {
@@ -251,21 +389,6 @@ export default function HomePage() {
         },
       ]);
     }, 150);
-  };
-
-  // New Chat Handler
-  const handleNewChat = () => {
-    activeStreamControllerRef.current?.cancel();
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-    setCurrentlySpeakingId(null);
-    setActiveChatId(undefined);
-    setMessages([]);
-    setActiveView('chat');
-    setIsProcessing(false);
-    setIsLoadingSession(false);
-    setSessionError(null);
   };
 
   // Feedback Handler (Love / Broken Love)
@@ -389,9 +512,12 @@ export default function HomePage() {
         ) : (
           <ConversationView
             messages={messages}
+            candidateSuggestions={candidateSuggestions}
             isLoadingSession={isLoadingSession}
             sessionError={sessionError}
             currentlySpeakingId={currentlySpeakingId}
+            onAcceptMemorySuggestion={handleAcceptMemorySuggestion}
+            onDismissMemorySuggestion={handleDismissMemorySuggestion}
             onStartSpeaking={(id: string) => setCurrentlySpeakingId(id)}
             onStopSpeaking={() => setCurrentlySpeakingId(null)}
             onRetrySession={() => setSessionError(null)}
@@ -402,7 +528,7 @@ export default function HomePage() {
         )}
       </ApplicationShell.Main>
 
-      {/* Bottom Region: Adaptive Chat Composer with Multi-Model Capabilities */}
+      {/* Bottom Region: Adaptive Chat Composer */}
       <ApplicationShell.Bottom>
         <ChatComposer
           onSend={handleSendMessage}

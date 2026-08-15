@@ -13,16 +13,24 @@ import {
   Keyboard,
   Info,
 } from 'lucide-react';
-import { SettingsSection } from '@/types';
+import { SettingsSection, ChatSession, ChatMessage } from '@/types';
+import { useSettings } from '@/state/settings-context';
+import { t } from '@/lib/i18n';
 import { SettingsContent } from '@/components/layout/settings-content';
 import { GeneralSettings } from '@/components/layout/general-settings';
 import { ModelSettings } from '@/components/layout/model-settings';
 import { MemorySettings } from '@/components/layout/memory-settings';
 import { NotificationSettings } from '@/components/layout/notification-settings';
+import { PersonalizationSettings } from '@/components/layout/personalization-settings';
+import { PrivacySettings } from '@/components/layout/privacy-settings';
+import { ShortcutsSettings } from '@/components/layout/shortcuts-settings';
 import { cn } from '@/lib/utils';
 
 export interface SettingsViewProps {
   onBack: () => void;
+  chats?: ChatSession[];
+  messages?: ChatMessage[];
+  onClearChatHistory?: () => void;
   className?: string;
 }
 
@@ -38,8 +46,8 @@ const SETTINGS_SECTIONS: SectionItem[] = [
   { id: 'ai-models', label: 'AI Models', icon: Sparkles, description: 'Default model, auto routing, custom endpoints, and parameters' },
   { id: 'memory', label: 'Memory', icon: Brain, description: 'Knowledge rules, category tags, and context scopes' },
   { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Alert triggers, task notices, and sound preferences' },
-  { id: 'personalization', label: 'Personalization', icon: Palette, description: 'Response style and tone preferences' },
-  { id: 'privacy', label: 'Privacy', icon: ShieldCheck, description: 'Data retention, telemetry, and export options' },
+  { id: 'personalization', label: 'Personalization', icon: Palette, description: 'Response style, conversational tone, formatting, and depth' },
+  { id: 'privacy', label: 'Privacy & Data', icon: ShieldCheck, description: 'Data retention, local storage, backups, and deletion' },
   { id: 'data', label: 'Data', icon: HardDrive, description: 'Storage management and backup settings' },
   { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard, description: 'Keyboard commands and fast navigation' },
   { id: 'about', label: 'About', icon: Info, description: 'Version 0.1.0 and XviFloo acknowledgements' },
@@ -47,12 +55,20 @@ const SETTINGS_SECTIONS: SectionItem[] = [
 
 /**
  * SettingsView: Complete responsive settings shell fitting inside the navigation window.
- * Houses General, AI Models, Memory, Notifications, and foundation shells for upcoming modules.
+ * Houses General, AI Models, Memory, Notifications, Personalization, Privacy, and Shortcuts.
  */
-export function SettingsView({ onBack, className }: SettingsViewProps) {
+export function SettingsView({
+  onBack,
+  chats = [],
+  messages = [],
+  onClearChatHistory = () => { },
+  className,
+}: SettingsViewProps) {
+  const { settings } = useSettings();
   const [activeSection, setActiveSection] = useState<SettingsSection>('general');
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const backButtonRef = useRef<HTMLButtonElement>(null);
+  const lang = settings.language;
 
   useEffect(() => {
     backButtonRef.current?.focus();
@@ -80,14 +96,14 @@ export function SettingsView({ onBack, className }: SettingsViewProps) {
           <button
             ref={backButtonRef}
             type="button"
-            aria-label="Back to main navigation"
+            aria-label={t('back', lang)}
             onClick={onBack}
             className="w-6 h-6 rounded-kleava-sm flex items-center justify-center text-kleava-text-secondary hover:text-kleava-text-primary hover:bg-kleava-surface-soft transition-colors focus-ring-kleava"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
           </button>
           <span className="typography-label font-semibold text-xs text-kleava-text-primary">
-            Settings
+            {t('settings', lang)}
           </span>
         </div>
 
@@ -160,6 +176,16 @@ export function SettingsView({ onBack, className }: SettingsViewProps) {
         <MemorySettings />
       ) : activeSection === 'notifications' ? (
         <NotificationSettings />
+      ) : activeSection === 'personalization' ? (
+        <PersonalizationSettings />
+      ) : activeSection === 'privacy' ? (
+        <PrivacySettings
+          chats={chats}
+          messages={messages}
+          onClearChatHistory={onClearChatHistory}
+        />
+      ) : activeSection === 'shortcuts' ? (
+        <ShortcutsSettings />
       ) : (
         <SettingsContent
           sectionId={currentSection.id}

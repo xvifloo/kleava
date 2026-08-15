@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Sun, Moon, Monitor, Check } from 'lucide-react';
 import { useSettings } from '@/state/settings-context';
 import { ThemeMode, FontSizeMode, LanguageCode } from '@/types';
+import { t } from '@/lib/i18n';
 import {
     SettingsContent,
     SettingsSectionBlock,
@@ -18,27 +19,39 @@ const ACCENT_PRESETS = [
     { label: 'Royal Violet', value: '#8B5CF6' },
     { label: 'Warm Amber', value: '#F59E0B' },
     { label: 'Rose Pink', value: '#EC4899' },
+    { label: 'Forest Emerald', value: '#10B981' },
 ];
 
 /**
- * GeneralSettings: Complete General Preferences & Appearance controls.
- * Features Theme, Accent Swatches, Language, Font Size, and Accessibility Toggles.
+ * GeneralSettings: Complete General Preferences & Appearance module.
+ * Fully localized with Theme, Accent swatches, Language, Font scale (Small/Medium/Large),
+ * Auto Save, Compact Mode, and Accessibility toggles.
  */
 export function GeneralSettings() {
     const { settings, updateSettings } = useSettings();
+    const [customHex, setCustomHex] = useState(settings.accentColor);
+    const lang = settings.language;
+
+    const handleCustomHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setCustomHex(val);
+        if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+            updateSettings({ accentColor: val });
+        }
+    };
 
     return (
         <SettingsContent
             sectionId="general"
-            title="General"
-            description="Manage visual appearance, language, typography scale, and application behavior."
+            title={t('generalSettingsTitle', lang)}
+            description={t('generalSettingsDesc', lang)}
         >
             {/* 1. Appearance Section */}
-            <SettingsSectionBlock title="Appearance">
+            <SettingsSectionBlock title={t('appearance', lang)}>
                 {/* Theme Segmented Control */}
                 <SettingsRow
-                    label="Color Theme"
-                    description="Choose between Light, Dark, or System mode"
+                    label={t('colorTheme', lang)}
+                    description={t('colorThemeDesc', lang)}
                     control={
                         <div className="flex items-center space-x-1 p-0.5 rounded-kleava-md bg-kleava-surface border border-kleava-border-subtle/80">
                             {[
@@ -73,10 +86,10 @@ export function GeneralSettings() {
 
                 {/* Accent Color Swatch Picker */}
                 <SettingsRow
-                    label="Accent Color"
-                    description="Primary brand tint applied to interactive controls"
+                    label={t('accentColor', lang)}
+                    description={t('accentColorDesc', lang)}
                     control={
-                        <div className="flex items-center space-x-1.5 py-0.5">
+                        <div className="flex items-center space-x-1.5 py-0.5 flex-wrap gap-y-1">
                             {ACCENT_PRESETS.map((preset) => {
                                 const isSelected = settings.accentColor.toLowerCase() === preset.value.toLowerCase();
                                 return (
@@ -85,18 +98,33 @@ export function GeneralSettings() {
                                         type="button"
                                         aria-label={preset.label}
                                         title={preset.label}
-                                        onClick={() => updateSettings({ accentColor: preset.value })}
+                                        onClick={() => {
+                                            setCustomHex(preset.value);
+                                            updateSettings({ accentColor: preset.value });
+                                        }}
                                         style={{ backgroundColor: preset.value }}
                                         className={cn(
                                             'w-5 h-5 rounded-full flex items-center justify-center transition-transform active:scale-90',
                                             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-                                            isSelected ? 'ring-2 ring-kleava-text-primary scale-110 shadow-xs' : 'opacity-85 hover:opacity-100 hover:scale-105'
+                                            isSelected
+                                                ? 'ring-2 ring-kleava-text-primary scale-110 shadow-xs'
+                                                : 'opacity-85 hover:opacity-100 hover:scale-105'
                                         )}
                                     >
                                         {isSelected && <Check className="w-3 h-3 text-white stroke-[3]" />}
                                     </button>
                                 );
                             })}
+
+                            {/* Custom Hex Input */}
+                            <input
+                                type="text"
+                                value={customHex}
+                                onChange={handleCustomHexChange}
+                                maxLength={7}
+                                placeholder="#17BC9B"
+                                className="w-16 px-1.5 py-0.5 text-[10px] font-mono rounded bg-kleava-surface border border-kleava-border-subtle text-kleava-text-primary focus:outline-none focus:border-kleava-accent uppercase"
+                            />
                         </div>
                     }
                 />
@@ -105,25 +133,25 @@ export function GeneralSettings() {
             <SettingsDivider />
 
             {/* 2. Language & Typography Scale */}
-            <SettingsSectionBlock title="Language & Scale">
+            <SettingsSectionBlock title={t('languageAndScale', lang)}>
                 {/* Language Selection */}
                 <SettingsRow
-                    label="Language"
-                    description="Interface and system default conversation script"
+                    label={t('language', lang)}
+                    description={t('languageDesc', lang)}
                     control={
                         <div className="flex items-center space-x-1 p-0.5 rounded-kleava-md bg-kleava-surface border border-kleava-border-subtle/80">
                             {[
                                 { id: 'en', label: 'English' },
                                 { id: 'bn', label: 'বাংলা' },
-                            ].map((lang) => {
-                                const isSelected = settings.language === lang.id;
+                            ].map((item) => {
+                                const isSelected = settings.language === item.id;
                                 return (
                                     <button
-                                        key={lang.id}
+                                        key={item.id}
                                         type="button"
                                         role="radio"
                                         aria-checked={isSelected}
-                                        onClick={() => updateSettings({ language: lang.id as LanguageCode })}
+                                        onClick={() => updateSettings({ language: item.id as LanguageCode })}
                                         className={cn(
                                             'px-2.5 py-1 rounded-kleava-sm typography-metadata text-[10.5px] transition-all',
                                             isSelected
@@ -131,7 +159,7 @@ export function GeneralSettings() {
                                                 : 'text-kleava-text-secondary hover:text-kleava-text-primary'
                                         )}
                                     >
-                                        {lang.label}
+                                        {item.label}
                                     </button>
                                 );
                             })}
@@ -141,13 +169,13 @@ export function GeneralSettings() {
 
                 {/* Font Size Scaling */}
                 <SettingsRow
-                    label="Content Font Size"
-                    description="Adjust document baseline readability"
+                    label={t('contentFontSize', lang)}
+                    description={t('contentFontSizeDesc', lang)}
                     control={
                         <div className="flex items-center space-x-1 p-0.5 rounded-kleava-md bg-kleava-surface border border-kleava-border-subtle/80">
                             {[
                                 { id: 'small', label: 'Small' },
-                                { id: 'default', label: 'Default' },
+                                { id: 'medium', label: 'Medium' },
                                 { id: 'large', label: 'Large' },
                             ].map((size) => {
                                 const isSelected = settings.fontSize === size.id;
@@ -177,11 +205,11 @@ export function GeneralSettings() {
             <SettingsDivider />
 
             {/* 3. Application Preferences & Accessibility */}
-            <SettingsSectionBlock title="Preferences & Accessibility">
+            <SettingsSectionBlock title={t('preferencesAndAccessibility', lang)}>
                 {/* Auto Save Toggle */}
                 <SettingsRow
-                    label="Auto Save History"
-                    description="Persist chat sessions in local memory automatically"
+                    label={t('autoSave', lang)}
+                    description={t('autoSaveDesc', lang)}
                     control={
                         <button
                             type="button"
@@ -205,8 +233,8 @@ export function GeneralSettings() {
 
                 {/* Compact Mode Toggle */}
                 <SettingsRow
-                    label="Compact Mode"
-                    description="Reduce spacing density across workspace rows"
+                    label={t('compactMode', lang)}
+                    description={t('compactModeDesc', lang)}
                     control={
                         <button
                             type="button"
@@ -230,8 +258,8 @@ export function GeneralSettings() {
 
                 {/* Reduce Motion Toggle */}
                 <SettingsRow
-                    label="Reduce Motion"
-                    description="Minimize transition and rotation animations"
+                    label={t('reduceMotion', lang)}
+                    description={t('reduceMotionDesc', lang)}
                     control={
                         <button
                             type="button"
@@ -255,8 +283,8 @@ export function GeneralSettings() {
 
                 {/* Sound Effects Toggle */}
                 <SettingsRow
-                    label="Sound Feedback"
-                    description="Enable audio feedback during speech-to-text"
+                    label={t('soundFeedback', lang)}
+                    description={t('soundFeedbackDesc', lang)}
                     control={
                         <button
                             type="button"

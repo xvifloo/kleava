@@ -9,8 +9,10 @@ export function mapResponseLengthToTokens(mode: ResponseLengthMode): number {
             return 512;
         case 'balanced':
             return 2048;
-        case 'long':
+        case 'detailed':
             return 4096;
+        case 'maximum':
+            return 8192;
         default:
             return 2048;
     }
@@ -31,6 +33,7 @@ export function resolveEffectiveGenerationConfig({
     maxTokens: number;
     supportsVision: boolean;
     supportsReasoning: boolean;
+    supportsStreaming: boolean;
     effectiveTemperature: number;
 } {
     const supportsVision = Boolean(
@@ -39,6 +42,7 @@ export function resolveEffectiveGenerationConfig({
     const supportsReasoning = Boolean(
         model?.capabilities.includes('reasoning') || model?.id === 'auto'
     );
+    const supportsStreaming = model?.supportsStreaming !== false;
 
     const clampedTemp = Math.min(Math.max(globalConfig.temperature, 0.0), 1.0);
 
@@ -47,10 +51,12 @@ export function resolveEffectiveGenerationConfig({
         temperature: clampedTemp,
         effectiveTemperature: clampedTemp,
         maxTokens: mapResponseLengthToTokens(globalConfig.responseLength),
+        streaming: supportsStreaming && globalConfig.streaming,
         reasoningMode: supportsReasoning && globalConfig.reasoningMode,
         visionEnabled: supportsVision && globalConfig.visionEnabled,
         supportsVision,
         supportsReasoning,
+        supportsStreaming,
     };
 }
 

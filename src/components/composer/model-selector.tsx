@@ -12,6 +12,7 @@ import {
     Eye,
     Brain,
     FileText,
+    Wrench,
 } from 'lucide-react';
 import { useSettings } from '@/state/settings-context';
 import { ModelGroup, ModelCapability } from '@/types';
@@ -34,13 +35,13 @@ function renderCapabilityIcon(cap: ModelCapability) {
             );
         case 'vision':
             return (
-                <span key={cap} title="Vision / Image" className="inline-flex">
+                <span key={cap} title="Vision / Image Understanding" className="inline-flex">
                     <Eye className="w-2.5 h-2.5 text-blue-500" />
                 </span>
             );
         case 'reasoning':
             return (
-                <span key={cap} title="Deep Reasoning" className="inline-flex">
+                <span key={cap} title="Deep Analytical Reasoning" className="inline-flex">
                     <Brain className="w-2.5 h-2.5 text-purple-500" />
                 </span>
             );
@@ -54,6 +55,12 @@ function renderCapabilityIcon(cap: ModelCapability) {
             return (
                 <span key={cap} title="Fast Execution" className="inline-flex">
                     <Sparkles className="w-2.5 h-2.5 text-kleava-accent" />
+                </span>
+            );
+        case 'tools':
+            return (
+                <span key={cap} title="Tool Use" className="inline-flex">
+                    <Wrench className="w-2.5 h-2.5 text-amber-600" />
                 </span>
             );
         default:
@@ -287,7 +294,7 @@ export function ModelSelector({
                                                             )}
 
                                                             {!model.isAvailable && (
-                                                                <span className="flex items-center space-x-0.5 text-[9px] text-kleava-text-secondary/60">
+                                                                <span className="flex items-center space-x-0.5 text-[9px] text-amber-600 bg-amber-50 px-1 rounded font-medium">
                                                                     <Lock className="w-2.5 h-2.5" />
                                                                     <span>Config</span>
                                                                 </span>
