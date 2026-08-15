@@ -1,9 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ChatSession, UserProfile as UserProfileType, ComposerAttachment } from '@/types';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  ChatSession,
+  UserProfile as UserProfileType,
+  ComposerAttachment,
+  ChatMessage,
+  MessageFeedback,
+} from '@/types';
+import { startAiStream, StreamController } from '@/lib/ai-stream';
 import { ApplicationShell } from '@/components/layout/application-shell';
 import { WelcomeState } from '@/components/modules/welcome-state';
+import { ConversationView } from '@/components/messages/conversation-view';
 import { NavTrigger } from '@/components/core/nav-trigger';
 import { NavPanel } from '@/components/layout/nav-panel';
 import { ChatComposer } from '@/components/composer/chat-composer';
@@ -51,36 +59,200 @@ const INITIAL_CHATS: ChatSession[] = [
 
 /**
  * Root Application Canvas:
- * Orchestrates the Shell, NavTrigger, NavPanel, WelcomeState, and ChatComposer.
+ * Orchestrates Navigation, Conversation stream with CodeBlock support, and Composer.
  */
 export default function HomePage() {
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [activeView, setActiveView] = useState<'chat' | 'project'>('chat');
   const [activeChatId, setActiveChatId] = useState<string | undefined>(undefined);
   const [chats, setChats] = useState<ChatSession[]>(INITIAL_CHATS);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoadingSession, setIsLoadingSession] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [currentlySpeakingId, setCurrentlySpeakingId] = useState<string | null>(null);
 
-  // Send message submission handler (with all parameters actively consumed)
+  const activeStreamControllerRef = useRef<StreamController | null>(null);
+
+  // Clean stream and audio on unmount
+  useEffect(() => {
+    return () => {
+      activeStreamControllerRef.current?.cancel();
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  // Send message submission handler
   const handleSendMessage = (message: string, attachments: ComposerAttachment[], model: string) => {
-    const hasAttachments = attachments.length > 0;
-    const initialTitle = message.trim() || (hasAttachments ? `Attachment: ${attachments[0].name}` : 'New Conversation');
+    const currentChatId = activeChatId || `chat-${Date.now()}`;
 
-    const newChat: ChatSession = {
-      id: `chat-${Date.now()}`,
-      title: initialTitle.slice(0, 30),
-      isPinned: false,
+    // 1. Create or update session in recent chats
+    if (!activeChatId) {
+      const initialTitle =
+        message.trim() || (attachments.length > 0 ? `Attachment: ${attachments[0].name}` : 'New Conversation');
+      const newChat: ChatSession = {
+        id: currentChatId,
+        title: initialTitle.slice(0, 30),
+        isPinned: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        projectId: model,
+      };
+      setChats((prev) => [newChat, ...prev]);
+      setActiveChatId(currentChatId);
+    }
+
+    // 2. Append user message
+    const newUserMsg: ChatMessage = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      chatId: currentChatId,
+      role: 'user',
+      content: message,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      projectId: model, // associate selected model ID
+      model,
+      attachments,
+      status: 'sent',
     };
 
-    setChats((prev) => [newChat, ...prev]);
-    setActiveChatId(newChat.id);
+    setMessages((prev) => [...prev, newUserMsg]);
+
+    // 3. Initiate decoupled AI Stream
+    const assistantMsgId = `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const initialAssistantMsg: ChatMessage = {
+      id: assistantMsgId,
+      chatId: currentChatId,
+      role: 'assistant',
+      content: '',
+      createdAt: new Date().toISOString(),
+      model: model === 'auto' ? 'Kleava Auto' : 'Kleava 0.7',
+      status: 'streaming',
+    };
+
+    setMessages((prev) => [...prev, initialAssistantMsg]);
+    setIsProcessing(true);
+
+    activeStreamControllerRef.current?.cancel();
+    activeStreamControllerRef.current = startAiStream(
+      message || 'নতুন প্রজেক্ট আলোচনা',
+      model === 'auto' ? 'Kleava Auto' : 'Kleava 0.7',
+      {
+        onChunk: (accumulated) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsgId ? { ...m, content: accumulated, status: 'streaming' } : m
+            )
+          );
+        },
+        onComplete: (full) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsgId ? { ...m, content: full, status: 'complete' } : m
+            )
+          );
+          setIsProcessing(false);
+          activeStreamControllerRef.current = null;
+        },
+        onError: () => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsgId
+                ? { ...m, status: 'error', errorMessage: 'Stream generation failed. Please retry.' }
+                : m
+            )
+          );
+          setIsProcessing(false);
+          activeStreamControllerRef.current = null;
+        },
+      }
+    );
   };
 
-  // New Chat Handler
-  const handleNewChat = () => {
-    setActiveChatId(undefined);
+  // Select Chat Session
+  const handleSelectChat = (id: string) => {
+    activeStreamControllerRef.current?.cancel();
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setCurrentlySpeakingId(null);
+    setActiveChatId(id);
     setActiveView('chat');
+    setIsLoadingSession(true);
+    setSessionError(null);
+    setIsProcessing(false);
+
+    // Simulate session restoration
+    setTimeout(() => {
+      setIsLoadingSession(false);
+      setMessages([
+        {
+          id: `msg-restored-1-${id}`,
+          chatId: id,
+          role: 'user',
+          content: 'পূর্ববর্তী সেশনের আলোচনা ও রিকোয়ারমেন্টস দেখতে চাই।',
+          createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+          status: 'sent',
+        },
+        {
+          id: `msg-restored-2-${id}`,
+          chatId: id,
+          role: 'assistant',
+          content: `### পূর্ববর্তী সেশনের সংক্ষেপ\nএই সেশনে আমরা **${id}** সংক্রান্ত কাজগুলো রিভিউ করেছিলাম।`,
+          createdAt: new Date(Date.now() - 1000 * 60 * 29).toISOString(),
+          status: 'complete',
+        },
+      ]);
+    }, 150);
+  };
+
+  // New Chat Handler (Complete isolation reset)
+  const handleNewChat = () => {
+    activeStreamControllerRef.current?.cancel();
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setCurrentlySpeakingId(null);
+    setActiveChatId(undefined);
+    setMessages([]);
+    setActiveView('chat');
+    setIsProcessing(false);
+    setIsLoadingSession(false);
+    setSessionError(null);
+  };
+
+  // Feedback Handler (Love / Broken Love)
+  const handleFeedback = (messageId: string, feedback: MessageFeedback) => {
+    setMessages((prev) =>
+      prev.map((msg) => (msg.id === messageId ? { ...msg, feedback } : msg))
+    );
+  };
+
+  // Retry Response Handler
+  const handleRetry = (messageId: string) => {
+    const targetMsg = messages.find((m) => m.id === messageId);
+    if (!targetMsg) return;
+    handleSendMessage('পুনরায় জেনারেট করা হচ্ছে', [], targetMsg.model || 'kleava-0.7');
+  };
+
+  // Edit Message Handler
+  const handleEditMessage = (messageId: string, newContent: string) => {
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === messageId
+          ? { ...msg, content: newContent, isEdited: true, updatedAt: new Date().toISOString() }
+          : msg
+      )
+    );
+  };
+
+  // Cancel Generation Handler
+  const handleCancelGeneration = () => {
+    activeStreamControllerRef.current?.cancel();
+    setIsProcessing(false);
+    setMessages((prev) =>
+      prev.map((msg) => (msg.status === 'streaming' ? { ...msg, status: 'cancelled' } : msg))
+    );
   };
 
   // Pin / Unpin Toggle
@@ -115,7 +287,7 @@ export default function HomePage() {
       prev.map((chat) => (chat.id === chatId ? { ...chat, isArchived: true } : chat))
     );
     if (activeChatId === chatId) {
-      setActiveChatId(undefined);
+      handleNewChat();
     }
   };
 
@@ -123,7 +295,7 @@ export default function HomePage() {
   const handleDelete = (chatId: string) => {
     setChats((prev) => prev.filter((chat) => chat.id !== chatId));
     if (activeChatId === chatId) {
-      setActiveChatId(undefined);
+      handleNewChat();
     }
   };
 
@@ -134,6 +306,8 @@ export default function HomePage() {
       return [...reorderedPinned, ...unpinned];
     });
   };
+
+  const hasMessages = messages.length > 0;
 
   return (
     <ApplicationShell>
@@ -156,10 +330,7 @@ export default function HomePage() {
         chats={chats}
         user={CURRENT_USER}
         activeChatId={activeChatId}
-        onSelectChat={(id) => {
-          setActiveChatId(id);
-          setActiveView('chat');
-        }}
+        onSelectChat={handleSelectChat}
         onPinToggle={handlePinToggle}
         onRename={handleRename}
         onArchive={handleArchive}
@@ -169,14 +340,33 @@ export default function HomePage() {
         onNewChat={handleNewChat}
       />
 
-      {/* Main Region: Dynamic Welcome / Initial Canvas */}
+      {/* Main Region: Switches between Welcome State and Live Conversation Stream */}
       <ApplicationShell.Main>
-        <WelcomeState userName={CURRENT_USER.name} />
+        {!hasMessages ? (
+          <WelcomeState userName={CURRENT_USER.name} />
+        ) : (
+          <ConversationView
+            messages={messages}
+            isLoadingSession={isLoadingSession}
+            sessionError={sessionError}
+            currentlySpeakingId={currentlySpeakingId}
+            onStartSpeaking={(id: string) => setCurrentlySpeakingId(id)}
+            onStopSpeaking={() => setCurrentlySpeakingId(null)}
+            onRetrySession={() => setSessionError(null)}
+            onEditMessage={handleEditMessage}
+            onFeedbackMessage={handleFeedback}
+            onRetryMessage={handleRetry}
+          />
+        )}
       </ApplicationShell.Main>
 
-      {/* Bottom Region: Dynamic Adaptive Chat Composer */}
+      {/* Bottom Region: Adaptive Chat Composer with Streaming Lifecycle */}
       <ApplicationShell.Bottom>
-        <ChatComposer onSend={handleSendMessage} />
+        <ChatComposer
+          onSend={handleSendMessage}
+          onCancel={handleCancelGeneration}
+          isProcessing={isProcessing}
+        />
       </ApplicationShell.Bottom>
     </ApplicationShell>
   );

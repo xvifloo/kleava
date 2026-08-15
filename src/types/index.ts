@@ -6,12 +6,20 @@ export type ModelProvider = 'kleava' | 'openai' | 'anthropic' | 'custom';
 
 export type ModelCapability = 'speed' | 'reasoning' | 'coding' | 'vision';
 
+export type ModelGroup = 'Recommended' | 'Kleava' | 'External Providers' | 'Custom';
+
 export interface ModelProfile {
   id: string;
   name: string;
   provider: ModelProvider;
+  group: ModelGroup;
+  description: string;
   capabilities: ModelCapability[];
+  badge?: string;
+  isDefault?: boolean;
+  isAvailable: boolean;
   contextWindow?: number;
+  requiresApiKey?: boolean;
   isAutoRoutable?: boolean;
 }
 
@@ -64,4 +72,26 @@ export interface ComposerAttachment {
   name: string;
   size: number;
   type: string;
+  previewUrl?: string;
+  status?: 'ready' | 'uploading' | 'error';
+  error?: string;
+}
+
+export type MessageRole = 'user' | 'assistant' | 'system';
+export type MessageStatus = 'idle' | 'sending' | 'sent' | 'streaming' | 'complete' | 'error' | 'cancelled';
+export type MessageFeedback = 'love' | 'broken-love' | null;
+
+export interface ChatMessage {
+  id: string;
+  chatId: string;
+  role: MessageRole;
+  content: string;
+  createdAt: string;
+  updatedAt?: string;
+  model?: string;
+  attachments?: ComposerAttachment[];
+  status?: MessageStatus;
+  feedback?: MessageFeedback;
+  errorMessage?: string;
+  isEdited?: boolean;
 }
