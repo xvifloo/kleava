@@ -9,6 +9,9 @@ import {
   MessageFeedback,
 } from '@/types';
 import { startAiStream, StreamController } from '@/lib/ai-stream';
+import { resolveEffectiveModel } from '@/lib/model-router';
+import { compileModelPayload } from '@/lib/generation-config';
+import { useSettings } from '@/state/settings-context';
 import { ApplicationShell } from '@/components/layout/application-shell';
 import { BrandHeader } from '@/components/layout/brand-header';
 import { WelcomeState } from '@/components/modules/welcome-state';
@@ -59,9 +62,11 @@ const INITIAL_CHATS: ChatSession[] = [
 
 /**
  * Root Application Canvas:
- * Orchestrates Top BrandHeader, Navigation Panel with Search & Settings, and Chat Workspace.
+ * Orchestrates Multi-Model resolution, AI Response Configuration,
+ * Top BrandHeader, Navigation Panel, and ChatComposer.
  */
 export default function HomePage() {
+  const { models, generationConfig } = useSettings();
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [activeView, setActiveView] = useState<'chat' | 'project'>('chat');
   const [activeChatId, setActiveChatId] = useState<string | undefined>(undefined);
@@ -98,10 +103,25 @@ export default function HomePage() {
   }, []);
 
   // Send message submission handler
-  const handleSendMessage = (message: string, attachments: ComposerAttachment[], model: string) => {
+  const handleSendMessage = (message: string, attachments: ComposerAttachment[], modelId: string) => {
+    if (isProcessing) return;
     const currentChatId = activeChatId || `chat-${Date.now()}`;
 
-    // 1. Create or update session in recent chats
+    // 1. Resolve active model profile via clean router boundary
+    const effectiveModel = resolveEffectiveModel({
+      modelId,
+      hasAttachments: attachments.length > 0,
+      models,
+    });
+
+    // 2. Compile model payload with active generation parameters
+    compileModelPayload({
+      prompt: message,
+      config: generationConfig,
+      model: effectiveModel,
+    });
+
+    // 3. Create or update session in recent chats
     if (!activeChatId) {
       const initialTitle =
         message.trim() || (attachments.length > 0 ? `Attachment: ${attachments[0].name}` : 'New Conversation');
@@ -111,7 +131,7 @@ export default function HomePage() {
         isPinned: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        projectId: model,
+        projectId: effectiveModel.name,
       };
       setChats((prev) => [newChat, ...prev]);
       setActiveChatId(currentChatId);
@@ -121,21 +141,21 @@ export default function HomePage() {
       );
     }
 
-    // 2. Append user message
+    // 4. Append user message
     const newUserMsg: ChatMessage = {
       id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       chatId: currentChatId,
       role: 'user',
       content: message,
       createdAt: new Date().toISOString(),
-      model,
+      model: effectiveModel.name,
       attachments,
       status: 'sent',
     };
 
     setMessages((prev) => [...prev, newUserMsg]);
 
-    // 3. Initiate decoupled AI Stream
+    // 5. Initiate decoupled AI Stream
     const assistantMsgId = `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const initialAssistantMsg: ChatMessage = {
       id: assistantMsgId,
@@ -143,7 +163,7 @@ export default function HomePage() {
       role: 'assistant',
       content: '',
       createdAt: new Date().toISOString(),
-      model: model === 'auto' ? 'Kleava Auto' : 'Kleava 0.7',
+      model: effectiveModel.name,
       status: 'streaming',
     };
 
@@ -153,7 +173,7 @@ export default function HomePage() {
     activeStreamControllerRef.current?.cancel();
     activeStreamControllerRef.current = startAiStream(
       message || 'নতুন প্রজেক্ট আলোচনা',
-      model === 'auto' ? 'Kleava Auto' : 'Kleava 0.7',
+      effectiveModel.name,
       {
         onChunk: (accumulated) => {
           setMessages((prev) =>
@@ -183,6 +203,16 @@ export default function HomePage() {
           activeStreamControllerRef.current = null;
         },
       }
+    );
+  };
+
+  // Cancel / Stop Generation Handler
+  const handleCancelGeneration = () => {
+    activeStreamControllerRef.current?.cancel();
+    activeStreamControllerRef.current = null;
+    setIsProcessing(false);
+    setMessages((prev) =>
+      prev.map((msg) => (msg.status === 'streaming' ? { ...msg, status: 'cancelled' } : msg))
     );
   };
 
@@ -223,7 +253,7 @@ export default function HomePage() {
     }, 150);
   };
 
-  // New Chat Handler (Complete isolation reset)
+  // New Chat Handler
   const handleNewChat = () => {
     activeStreamControllerRef.current?.cancel();
     if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -260,15 +290,6 @@ export default function HomePage() {
           ? { ...msg, content: newContent, isEdited: true, updatedAt: new Date().toISOString() }
           : msg
       )
-    );
-  };
-
-  // Cancel Generation Handler
-  const handleCancelGeneration = () => {
-    activeStreamControllerRef.current?.cancel();
-    setIsProcessing(false);
-    setMessages((prev) =>
-      prev.map((msg) => (msg.status === 'streaming' ? { ...msg, status: 'cancelled' } : msg))
     );
   };
 
@@ -324,7 +345,7 @@ export default function HomePage() {
     });
   };
 
-  // Close Navigation with focus restoration to trigger button
+  // Close Navigation
   const handleCloseNav = () => {
     setIsNavOpen(false);
     navTriggerRef.current?.focus();
@@ -334,7 +355,7 @@ export default function HomePage() {
 
   return (
     <ApplicationShell>
-      {/* Top Region: Top-Left Two-Dot Trigger & Top-Right xviFlooPm.svg */}
+      {/* Top Region: Top-Left Two-Dot Trigger & Top-Right Brand Anchor */}
       <ApplicationShell.Top>
         <BrandHeader
           isNavOpen={isNavOpen}
@@ -361,7 +382,7 @@ export default function HomePage() {
         onNewChat={handleNewChat}
       />
 
-      {/* Main Region: Switches between Welcome State and Live Conversation Stream */}
+      {/* Main Region: Conditional Rendering between Welcome State and Live Conversation Feed */}
       <ApplicationShell.Main>
         {!hasMessages ? (
           <WelcomeState userName={CURRENT_USER.name} />
@@ -381,7 +402,7 @@ export default function HomePage() {
         )}
       </ApplicationShell.Main>
 
-      {/* Bottom Region: Adaptive Chat Composer with Streaming Lifecycle */}
+      {/* Bottom Region: Adaptive Chat Composer with Multi-Model Capabilities */}
       <ApplicationShell.Bottom>
         <ChatComposer
           onSend={handleSendMessage}

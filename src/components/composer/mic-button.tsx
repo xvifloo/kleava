@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -52,6 +52,13 @@ export function MicButton({ onTranscript, disabled = false, className }: MicButt
     const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
     const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    const showFeedback = useCallback((msg: string) => {
+        setFeedbackMessage(msg);
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => setFeedbackMessage(null), 3000);
+    }, []);
 
     useEffect(() => {
         const win = typeof window !== 'undefined' ? (window as unknown as SpeechWindow) : null;
@@ -74,8 +81,7 @@ export function MicButton({ onTranscript, disabled = false, className }: MicButt
 
                 recognition.onerror = () => {
                     setIsListening(false);
-                    setFeedbackMessage('Mic unavailable');
-                    setTimeout(() => setFeedbackMessage(null), 3000);
+                    showFeedback('Mic unavailable or permission denied');
                 };
 
                 recognition.onend = () => {
@@ -94,13 +100,13 @@ export function MicButton({ onTranscript, disabled = false, className }: MicButt
             if (recognitionRef.current) {
                 recognitionRef.current.abort();
             }
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
         };
-    }, [onTranscript]);
+    }, [onTranscript, showFeedback]);
 
     const toggleListening = () => {
         if (!hasSupport) {
-            setFeedbackMessage('Speech recognition unsupported');
-            setTimeout(() => setFeedbackMessage(null), 3000);
+            showFeedback('Speech recognition unsupported in this browser');
             return;
         }
 
@@ -113,12 +119,13 @@ export function MicButton({ onTranscript, disabled = false, className }: MicButt
                 setIsListening(true);
             } catch {
                 setIsListening(false);
+                showFeedback('Could not start microphone');
             }
         }
     };
 
     return (
-        <div className="relative inline-flex items-center">
+        <div className="relative inline-flex items-center select-none font-ui">
             <button
                 type="button"
                 aria-label={isListening ? 'Stop listening' : 'Voice input'}
@@ -126,10 +133,10 @@ export function MicButton({ onTranscript, disabled = false, className }: MicButt
                 disabled={disabled}
                 onClick={toggleListening}
                 className={cn(
-                    'w-7 h-7 rounded-kleava-control flex items-center justify-center select-none',
+                    'w-7 h-7 rounded-kleava-control flex items-center justify-center',
                     'transition-all duration-150 active:scale-95 focus-ring-kleava',
                     isListening
-                        ? 'bg-kleava-accent/15 text-kleava-accent ring-2 ring-kleava-accent/30 animate-pulse'
+                        ? 'bg-kleava-accent/15 text-kleava-accent ring-2 ring-kleava-accent/40 animate-pulse'
                         : 'bg-kleava-surface-soft text-kleava-text-secondary hover:text-kleava-accent hover:bg-kleava-surface-light',
                     disabled && 'opacity-60 cursor-not-allowed',
                     className
@@ -146,7 +153,7 @@ export function MicButton({ onTranscript, disabled = false, className }: MicButt
 
             {/* Ephemeral Feedback Tooltip */}
             {feedbackMessage && (
-                <div className="absolute right-0 bottom-9 z-50 whitespace-nowrap px-2 py-1 rounded bg-kleava-text-primary text-white typography-metadata text-[10px] shadow-sm animate-in fade-in">
+                <div className="absolute right-0 bottom-9 z-50 whitespace-nowrap px-2.5 py-1 rounded bg-kleava-text-primary text-white typography-metadata text-[10px] shadow-sm animate-in fade-in">
                     {feedbackMessage}
                 </div>
             )}

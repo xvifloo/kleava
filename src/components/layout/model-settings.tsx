@@ -9,12 +9,14 @@ import {
     EyeOff,
     Check,
     Cpu,
-    Sliders,
-    Shield,
-    Layers,
+    Lock,
+    Zap,
+    Target,
+    PenTool,
 } from 'lucide-react';
 import { useSettings } from '@/state/settings-context';
-import { ModelProfile, ModelProvider, ResponseLengthMode } from '@/types';
+import { ModelProfile, ModelProvider, ResponseLengthMode, ModelCapability } from '@/types';
+import { GENERATION_PRESETS, GenerationPreset } from '@/config/models';
 import {
     SettingsContent,
     SettingsSectionBlock,
@@ -24,8 +26,8 @@ import {
 import { cn } from '@/lib/utils';
 
 /**
- * ModelSettings: Comprehensive AI Models, Custom Provider Configuration &
- * Generation Parameters (Temperature, Length, Streaming, Reasoning).
+ * ModelSettings: Comprehensive AI Models, Custom Provider Configuration,
+ * Generation Presets (Balanced, Precise, Creative), and Response Parameters.
  */
 export function ModelSettings() {
     const {
@@ -34,6 +36,7 @@ export function ModelSettings() {
         generationConfig,
         setActiveModelId,
         updateGenerationConfig,
+        applyGenerationPreset,
         addCustomModel,
         deleteCustomModel,
     } = useSettings();
@@ -48,8 +51,19 @@ export function ModelSettings() {
     const [formApiKey, setFormApiKey] = useState('');
     const [formBaseUrl, setFormBaseUrl] = useState('');
     const [formDescription, setFormDescription] = useState('');
+    const [formCapabilities, setFormCapabilities] = useState<ModelCapability[]>(['text', 'coding']);
     const [showApiKey, setShowApiKey] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
+
+    const activeModel = models.find((m) => m.id === activeModelId) || models[0];
+    const supportsReasoning = Boolean(activeModel?.capabilities.includes('reasoning') || activeModel?.id === 'auto');
+    const supportsVision = Boolean(activeModel?.capabilities.includes('vision') || activeModel?.id === 'auto');
+
+    const toggleCapability = (cap: ModelCapability) => {
+        setFormCapabilities((prev) =>
+            prev.includes(cap) ? prev.filter((c) => c !== cap) : [...prev, cap]
+        );
+    };
 
     const handleSaveCustomModel = (e: React.FormEvent) => {
         e.preventDefault();
@@ -61,34 +75,34 @@ export function ModelSettings() {
             return;
         }
 
-        if (models.some((m) => m.id === id)) {
-            setFormError(`Model ID '${id}' already exists`);
+        if (models.some((m) => m.id.toLowerCase() === id.toLowerCase())) {
+            setFormError(`Model ID '${id}' already exists in registry`);
             return;
         }
 
-        const newModel: Omit<ModelProfile, 'isCustom'> = {
+        const success = addCustomModel({
             id,
             name,
             provider: formProvider,
             group: 'Custom',
             description: formDescription.trim() || `Custom ${formProvider.toUpperCase()} model`,
-            capabilities: ['speed', 'reasoning'],
+            capabilities: formCapabilities.length > 0 ? formCapabilities : ['text'],
             apiKey: formApiKey.trim() || undefined,
             baseUrl: formBaseUrl.trim() || undefined,
             isAvailable: true,
-        };
+        });
 
-        addCustomModel(newModel);
-        setActiveModelId(id);
-
-        // Reset Form
-        setFormName('');
-        setFormModelId('');
-        setFormApiKey('');
-        setFormBaseUrl('');
-        setFormDescription('');
-        setFormError(null);
-        setIsAddModalOpen(false);
+        if (success) {
+            setActiveModelId(id);
+            setFormName('');
+            setFormModelId('');
+            setFormApiKey('');
+            setFormBaseUrl('');
+            setFormDescription('');
+            setFormCapabilities(['text', 'coding']);
+            setFormError(null);
+            setIsAddModalOpen(false);
+        }
     };
 
     return (
@@ -98,7 +112,7 @@ export function ModelSettings() {
             description="Select default model, configure custom API endpoints, and tune generation parameters."
         >
             {/* 1. Default Model Selector Section */}
-            <SettingsSectionBlock title="Model Selection">
+            <SettingsSectionBlock title="Model Registry">
                 <div className="flex flex-col space-y-1.5">
                     {models.map((model) => {
                         const isSelected = model.id === activeModelId;
@@ -125,9 +139,12 @@ export function ModelSettings() {
                                     </div>
 
                                     <div className="flex flex-col min-w-0">
-                                        <div className="flex items-center space-x-1.5">
+                                        <div className="flex items-center space-x-1.5 flex-wrap">
                                             <span className="typography-label text-xs font-semibold truncate text-kleava-text-primary">
                                                 {model.name}
+                                            </span>
+                                            <span className="typography-metadata text-[8.5px] uppercase px-1 py-0.2 rounded bg-kleava-surface-soft text-kleava-text-secondary font-mono">
+                                                {model.provider}
                                             </span>
                                             {model.badge && (
                                                 <span className="typography-metadata text-[9px] uppercase px-1 py-0.2 rounded bg-kleava-accent/15 text-kleava-accent font-semibold">
@@ -185,18 +202,59 @@ export function ModelSettings() {
 
             <SettingsDivider />
 
-            {/* 2. Generation Parameters Section */}
-            <SettingsSectionBlock title="Model Parameters">
+            {/* 2. Generation Presets Bar */}
+            <SettingsSectionBlock title="Response Presets">
+                <div className="grid grid-cols-3 gap-1.5">
+                    {(Object.keys(GENERATION_PRESETS) as GenerationPreset[]).map((key) => {
+                        const preset = GENERATION_PRESETS[key];
+                        const isMatched =
+                            generationConfig.temperature === preset.config.temperature &&
+                            generationConfig.responseLength === preset.config.responseLength;
+
+                        return (
+                            <button
+                                key={key}
+                                type="button"
+                                onClick={() => applyGenerationPreset(key)}
+                                className={cn(
+                                    'flex flex-col items-start p-2 rounded-kleava-md border text-left transition-all',
+                                    isMatched
+                                        ? 'bg-kleava-surface-soft border-kleava-accent/60 shadow-xs'
+                                        : 'bg-kleava-surface-light/30 border-kleava-border-subtle/50 hover:bg-kleava-surface-light/60'
+                                )}
+                            >
+                                <div className="flex items-center space-x-1 mb-0.5">
+                                    {key === 'balanced' && <Zap className="w-3 h-3 text-kleava-accent" />}
+                                    {key === 'precise' && <Target className="w-3 h-3 text-blue-500" />}
+                                    {key === 'creative' && <PenTool className="w-3 h-3 text-purple-500" />}
+                                    <span className="typography-label text-[11px] font-semibold text-kleava-text-primary">
+                                        {preset.label}
+                                    </span>
+                                </div>
+                                <span className="typography-metadata text-[9px] text-kleava-text-secondary line-clamp-1">
+                                    {preset.description}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </SettingsSectionBlock>
+
+            <SettingsDivider />
+
+            {/* 3. Detailed Parameter Controls */}
+            <SettingsSectionBlock title="Fine-Tuning Controls">
                 {/* Temperature Slider */}
                 <SettingsRow
                     label={`Temperature: ${generationConfig.temperature.toFixed(2)}`}
-                    description="Balances creativity (higher) and deterministic accuracy (lower)"
+                    description="Balances creativity (1.0) and deterministic accuracy (0.0)"
                     control={
                         <input
                             type="range"
                             min="0.0"
                             max="1.0"
                             step="0.05"
+                            aria-label="Temperature"
                             value={generationConfig.temperature}
                             onChange={(e) => updateGenerationConfig({ temperature: parseFloat(e.target.value) })}
                             className="w-24 sm:w-28 accent-kleava-accent cursor-pointer"
@@ -207,7 +265,7 @@ export function ModelSettings() {
                 {/* Response Length Segmented Control */}
                 <SettingsRow
                     label="Response Length"
-                    description="Target output verbosity"
+                    description="Target output verbosity threshold"
                     control={
                         <div className="flex items-center space-x-1 p-0.5 rounded-kleava-md bg-kleava-surface border border-kleava-border-subtle/80">
                             {(['short', 'balanced', 'long'] as ResponseLengthMode[]).map((mode) => {
@@ -237,7 +295,7 @@ export function ModelSettings() {
                 {/* Streaming Toggle */}
                 <SettingsRow
                     label="Stream Responses"
-                    description="Render token-by-token progressive responses in real-time"
+                    description="Render progressive token stream in real-time"
                     control={
                         <button
                             type="button"
@@ -259,25 +317,93 @@ export function ModelSettings() {
                     }
                 />
 
-                {/* Reasoning Mode Toggle */}
+                {/* Reasoning Mode Toggle (Capability-Aware) */}
                 <SettingsRow
                     label="Deep Reasoning"
-                    description="Activate extended analytical mode on capable models"
+                    description={
+                        supportsReasoning
+                            ? 'Activate extended analytical reasoning on capable models'
+                            : 'Current active model does not support reasoning mode'
+                    }
+                    className={cn(!supportsReasoning && 'opacity-60')}
                     control={
                         <button
                             type="button"
                             role="switch"
+                            disabled={!supportsReasoning}
                             aria-checked={generationConfig.reasoningMode}
                             onClick={() => updateGenerationConfig({ reasoningMode: !generationConfig.reasoningMode })}
                             className={cn(
                                 'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-ring-kleava',
-                                generationConfig.reasoningMode ? 'bg-kleava-accent' : 'bg-kleava-surface-soft'
+                                generationConfig.reasoningMode && supportsReasoning ? 'bg-kleava-accent' : 'bg-kleava-surface-soft'
                             )}
                         >
                             <span
                                 className={cn(
                                     'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out',
-                                    generationConfig.reasoningMode ? 'translate-x-4' : 'translate-x-0'
+                                    generationConfig.reasoningMode && supportsReasoning ? 'translate-x-4' : 'translate-x-0'
+                                )}
+                            />
+                        </button>
+                    }
+                />
+
+                {/* Vision Mode Toggle (Capability-Aware) */}
+                <SettingsRow
+                    label="Vision Processing"
+                    description={
+                        supportsVision
+                            ? 'Enable image understanding and multimodal attachment inputs'
+                            : 'Current active model does not support image/vision inputs'
+                    }
+                    className={cn(!supportsVision && 'opacity-60')}
+                    control={
+                        <button
+                            type="button"
+                            role="switch"
+                            disabled={!supportsVision}
+                            aria-checked={generationConfig.visionEnabled}
+                            onClick={() => updateGenerationConfig({ visionEnabled: !generationConfig.visionEnabled })}
+                            className={cn(
+                                'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-ring-kleava',
+                                generationConfig.visionEnabled && supportsVision ? 'bg-kleava-accent' : 'bg-kleava-surface-soft'
+                            )}
+                        >
+                            <span
+                                className={cn(
+                                    'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out',
+                                    generationConfig.visionEnabled && supportsVision ? 'translate-x-4' : 'translate-x-0'
+                                )}
+                            />
+                        </button>
+                    }
+                />
+
+                {/* Auto Model Selection Switch */}
+                <SettingsRow
+                    label="Auto Model Routing"
+                    description="Dynamically route requests based on vision/coding needs"
+                    control={
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={generationConfig.autoModelSelection}
+                            onClick={() => {
+                                const next = !generationConfig.autoModelSelection;
+                                updateGenerationConfig({ autoModelSelection: next });
+                                if (next) {
+                                    setActiveModelId('auto');
+                                }
+                            }}
+                            className={cn(
+                                'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-ring-kleava',
+                                generationConfig.autoModelSelection ? 'bg-kleava-accent' : 'bg-kleava-surface-soft'
+                            )}
+                        >
+                            <span
+                                className={cn(
+                                    'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out',
+                                    generationConfig.autoModelSelection ? 'translate-x-4' : 'translate-x-0'
                                 )}
                             />
                         </button>
@@ -285,16 +411,16 @@ export function ModelSettings() {
                 />
             </SettingsSectionBlock>
 
-            {/* 3. Add Custom Model Modal Popover */}
+            {/* 4. Add Custom Model Modal Popover */}
             {isAddModalOpen && (
                 <div
                     role="dialog"
                     aria-modal="true"
                     aria-label="Add AI Model"
-                    className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-3 animate-in fade-in duration-150"
+                    className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-3 animate-in fade-in duration-150 select-none"
                 >
                     <div
-                        className="w-full max-w-sm bg-kleava-surface rounded-kleava-lg border border-kleava-border-subtle/80 shadow-kleava-floating p-4 flex flex-col space-y-3 font-ui"
+                        className="w-full max-w-sm bg-kleava-surface rounded-kleava-lg border border-kleava-border-subtle shadow-kleava-floating p-4 flex flex-col space-y-3 font-ui"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="flex items-center justify-between pb-2 border-b border-kleava-border-subtle/50">
@@ -304,7 +430,7 @@ export function ModelSettings() {
                             <button
                                 type="button"
                                 onClick={() => setIsAddModalOpen(false)}
-                                className="w-5 h-5 rounded hover:bg-kleava-surface-soft flex items-center justify-center text-kleava-text-secondary"
+                                className="w-5 h-5 rounded hover:bg-kleava-surface-soft flex items-center justify-center text-kleava-text-secondary text-xs"
                             >
                                 ✕
                             </button>
@@ -342,6 +468,8 @@ export function ModelSettings() {
                                 >
                                     <option value="openai">OpenAI Compatible</option>
                                     <option value="anthropic">Anthropic Compatible</option>
+                                    <option value="google">Google Gemini API</option>
+                                    <option value="local">Local Model (Ollama/vLLM)</option>
                                     <option value="custom">Custom Endpoint</option>
                                 </select>
                             </div>
@@ -362,7 +490,7 @@ export function ModelSettings() {
 
                             <div>
                                 <label className="typography-metadata text-[10px] text-kleava-text-secondary block mb-1">
-                                    API Key (Stored locally)
+                                    API Key (Stored locally in memory)
                                 </label>
                                 <div className="relative flex items-center">
                                     <input
@@ -395,6 +523,30 @@ export function ModelSettings() {
                                 />
                             </div>
 
+                            {/* Capabilities Checkboxes */}
+                            <div>
+                                <label className="typography-metadata text-[10px] text-kleava-text-secondary block mb-1">
+                                    Supported Capabilities
+                                </label>
+                                <div className="flex items-center space-x-2">
+                                    {(['text', 'vision', 'reasoning', 'coding'] as ModelCapability[]).map((cap) => (
+                                        <button
+                                            key={cap}
+                                            type="button"
+                                            onClick={() => toggleCapability(cap)}
+                                            className={cn(
+                                                'px-2 py-0.5 rounded text-[10px] uppercase font-mono transition-colors border',
+                                                formCapabilities.includes(cap)
+                                                    ? 'bg-kleava-accent/15 border-kleava-accent text-kleava-accent font-semibold'
+                                                    : 'bg-kleava-surface-soft border-kleava-border-subtle text-kleava-text-secondary'
+                                            )}
+                                        >
+                                            {cap}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
                             <div className="pt-2 flex items-center justify-end space-x-2">
                                 <button
                                     type="button"
@@ -415,12 +567,12 @@ export function ModelSettings() {
                 </div>
             )}
 
-            {/* 4. Delete Model Confirmation Modal */}
+            {/* 5. Delete Model Confirmation Modal */}
             {modelToDeleteId && (
                 <div
                     role="dialog"
                     aria-modal="true"
-                    className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-3 animate-in fade-in duration-150"
+                    className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-3 animate-in fade-in duration-150 select-none"
                 >
                     <div className="w-full max-w-xs bg-kleava-surface rounded-kleava-lg border border-kleava-border-subtle shadow-kleava-floating p-4 flex flex-col space-y-3 font-ui text-center">
                         <span className="typography-label text-xs font-semibold text-kleava-destructive">

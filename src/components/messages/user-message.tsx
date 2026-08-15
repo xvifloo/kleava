@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { Pencil, Copy, Check, FileText, CheckCheck } from 'lucide-react';
 import { ChatMessage } from '@/types';
@@ -17,9 +17,9 @@ export interface UserMessageProps {
 const LONG_TEXT_THRESHOLD = 320;
 
 /**
- * UserMessage: Clean rectangular message card for user inputs.
- * Supports image thumbnail cards, document attachment previews,
- * inline editing, and one-click copy.
+ * UserMessage: Clean rectangular message card adapting naturally to content length.
+ * Features long-message expansion/collapsing, inline editing with keyboard shortcuts,
+ * plain-text clipboard copy with temporary feedback, and relative timestamps.
  */
 export function UserMessage({ message, onEdit, className }: UserMessageProps) {
     const [isEditing, setIsEditing] = useState(false);
@@ -27,16 +27,35 @@ export function UserMessage({ message, onEdit, className }: UserMessageProps) {
     const [isExpanded, setIsExpanded] = useState(false);
     const [isCopied, setIsCopied] = useState(false);
 
+    const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+    const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
     const isLong = message.content.length > LONG_TEXT_THRESHOLD;
     const displayContent =
         isLong && !isExpanded ? `${message.content.slice(0, LONG_TEXT_THRESHOLD)}...` : message.content;
+
+    // Clean timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+        };
+    }, []);
+
+    // Autofocus textarea when entering edit mode
+    useEffect(() => {
+        if (isEditing) {
+            editTextareaRef.current?.focus();
+            editTextareaRef.current?.setSelectionRange(editContent.length, editContent.length);
+        }
+    }, [isEditing, editContent.length]);
 
     // Copy plain text content only (excluding attachments)
     const handleCopy = async () => {
         try {
             await navigator.clipboard.writeText(message.content);
             setIsCopied(true);
-            setTimeout(() => setIsCopied(false), 2000);
+            if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+            copyTimeoutRef.current = setTimeout(() => setIsCopied(false), 2000);
         } catch {
             setIsCopied(false);
         }
@@ -57,11 +76,16 @@ export function UserMessage({ message, onEdit, className }: UserMessageProps) {
     };
 
     return (
-        <div className={cn('group relative w-full flex flex-col items-end my-3 select-text', className)}>
-            {/* Message Card Container */}
+        <div
+            className={cn(
+                'group relative w-full flex flex-col items-end my-3 select-text font-ui',
+                className
+            )}
+        >
+            {/* Message Card Container: Adapts naturally to content width without artificial full-width bloat */}
             <div
                 className={cn(
-                    'w-full max-w-[92%] sm:max-w-[85%] md:max-w-[78%]',
+                    'w-auto min-w-[140px] max-w-[92%] sm:max-w-[85%] md:max-w-[78%]',
                     'bg-kleava-surface text-kleava-text-primary',
                     'rounded-kleava-md border border-kleava-border-subtle/70',
                     'shadow-kleava-subtle p-3.5 sm:p-4',
@@ -109,6 +133,7 @@ export function UserMessage({ message, onEdit, className }: UserMessageProps) {
                 {isEditing ? (
                     <div className="flex flex-col space-y-2">
                         <textarea
+                            ref={editTextareaRef}
                             value={editContent}
                             onChange={(e) => setEditContent(e.target.value)}
                             onKeyDown={(e) => {
@@ -119,20 +144,20 @@ export function UserMessage({ message, onEdit, className }: UserMessageProps) {
                                 if (e.key === 'Escape') handleCancelEdit();
                             }}
                             rows={3}
-                            className="w-full p-2 text-sm bg-kleava-surface-light/50 border border-kleava-accent rounded-kleava-sm text-kleava-text-primary focus:outline-none resize-y"
+                            className="w-full p-2 text-sm bg-kleava-surface-light/50 border border-kleava-accent rounded-kleava-sm text-kleava-text-primary focus:outline-none resize-y font-ui"
                         />
-                        <div className="flex items-center justify-end space-x-2">
+                        <div className="flex items-center justify-end space-x-2 select-none">
                             <button
                                 type="button"
                                 onClick={handleCancelEdit}
-                                className="px-2.5 py-1 text-xs rounded bg-kleava-surface-soft text-kleava-text-secondary hover:text-kleava-text-primary transition-colors"
+                                className="px-2.5 py-1 text-xs rounded bg-kleava-surface-soft text-kleava-text-secondary hover:text-kleava-text-primary transition-colors focus-ring-kleava"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="button"
                                 onClick={handleSaveEdit}
-                                className="px-2.5 py-1 text-xs rounded bg-kleava-accent text-white font-medium hover:opacity-90 transition-opacity"
+                                className="px-2.5 py-1 text-xs rounded bg-kleava-accent text-white font-medium hover:opacity-90 transition-opacity focus-ring-kleava"
                             >
                                 Save
                             </button>
@@ -140,16 +165,17 @@ export function UserMessage({ message, onEdit, className }: UserMessageProps) {
                     </div>
                 ) : (
                     <div className="flex flex-col">
-                        <p className="ai-response-prose text-sm whitespace-pre-wrap leading-relaxed">
+                        <p className="ai-response-prose text-sm whitespace-pre-wrap leading-relaxed break-words">
                             {displayContent}
                         </p>
 
-                        {/* Long Text Expand/Collapse Toggle */}
+                        {/* Long Text Expand/Collapse Toggle Button */}
                         {isLong && (
                             <button
                                 type="button"
+                                aria-expanded={isExpanded}
                                 onClick={() => setIsExpanded(!isExpanded)}
-                                className="mt-1.5 self-start text-xs font-medium text-kleava-accent hover:underline focus:outline-none"
+                                className="mt-1.5 self-start text-xs font-medium text-kleava-accent hover:underline focus-ring-kleava select-none"
                             >
                                 {isExpanded ? 'Show less' : 'Show more'}
                             </button>
@@ -159,7 +185,7 @@ export function UserMessage({ message, onEdit, className }: UserMessageProps) {
 
                 {/* Bottom Metadata & Action Tray */}
                 <div className="mt-2.5 pt-2 border-t border-kleava-border-subtle/30 flex items-center justify-between text-kleava-text-secondary text-xs select-none">
-                    {/* Timestamp & Status */}
+                    {/* Timestamp, Status & Edited Badge */}
                     <div className="flex items-center space-x-1.5">
                         <span className="typography-metadata text-[10.5px]">
                             {formatRelativeTime(message.createdAt)}
@@ -187,9 +213,9 @@ export function UserMessage({ message, onEdit, className }: UserMessageProps) {
                         {/* Copy Trigger */}
                         <button
                             type="button"
-                            aria-label={isCopied ? 'Copied' : 'Copy message'}
+                            aria-label={isCopied ? 'Copied' : 'Copy message text'}
                             onClick={handleCopy}
-                            className="p-1 rounded-kleava-sm hover:bg-kleava-surface-soft text-kleava-text-secondary hover:text-kleava-text-primary transition-colors focus-ring-kleava flex items-center space-x-1"
+                            className="p-1 rounded-kleava-sm hover:bg-kleava-surface-soft text-kleava-text-secondary hover:text-kleava-text-primary transition-colors focus-ring-kleava flex items-center space-x-1 min-w-[24px]"
                         >
                             {isCopied ? (
                                 <>

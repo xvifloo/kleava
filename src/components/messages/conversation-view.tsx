@@ -52,7 +52,7 @@ export function ConversationView({
     });
 
     return (
-        <div className="relative w-full h-full flex flex-col min-h-0 overflow-hidden">
+        <div className="relative w-full h-full flex flex-col min-h-0 overflow-hidden font-ui">
             {/* 1. Main Scrollable Container */}
             <div
                 ref={containerRef}
@@ -92,7 +92,7 @@ export function ConversationView({
                         </div>
                     )}
 
-                    {/* Message List */}
+                    {/* Message List with Stable Deterministic Keys */}
                     {messages.map((msg) => {
                         if (msg.role === 'user') {
                             return (

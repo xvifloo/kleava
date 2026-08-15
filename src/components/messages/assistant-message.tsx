@@ -28,9 +28,9 @@ export interface AssistantMessageProps {
 }
 
 /**
- * AssistantMessage: Document-style AI response renderer.
- * Features typing cursor during streaming, singleton SpeechSynthesis TTS,
- * mutually exclusive Love/Broken Love sentiment triggers, and plain-text copy actions.
+ * AssistantMessage: Document-style conversational AI response container.
+ * Features mixed Bangla/English typography, streaming cursor,
+ * SpeechSynthesis TTS, mutually exclusive Love/Broken Love, and plain-text copy actions.
  */
 export function AssistantMessage({
     message,
@@ -50,7 +50,7 @@ export function AssistantMessage({
     const hasContent = Boolean(message.content && message.content.trim().length > 0);
     const isSpeaking = currentlySpeakingId === message.id;
 
-    // Clean copy timeout on unmount
+    // Cleanup copy timeout on unmount
     useEffect(() => {
         return () => {
             if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
@@ -104,7 +104,7 @@ export function AssistantMessage({
     return (
         <div
             className={cn(
-                'w-full flex flex-col items-start my-3.5 select-text',
+                'w-full flex flex-col items-start my-3.5 select-text font-ui',
                 'animate-in fade-in duration-200 ease-out',
                 className
             )}
@@ -201,7 +201,7 @@ export function AssistantMessage({
                             )}
                         </button>
 
-                        {/* Love Button */}
+                        {/* Love Button (Outline -> Red Filled) */}
                         <button
                             type="button"
                             aria-label="Love response"
@@ -216,13 +216,13 @@ export function AssistantMessage({
                         >
                             <Heart
                                 className={cn(
-                                    'w-3.5 h-3.5',
+                                    'w-3.5 h-3.5 transition-transform duration-150 active:scale-125',
                                     message.feedback === 'love' && 'fill-current text-red-500'
                                 )}
                             />
                         </button>
 
-                        {/* Broken Love Button */}
+                        {/* Broken Love Button (Outline -> Negative State) */}
                         <button
                             type="button"
                             aria-label="Dislike response"
@@ -237,7 +237,7 @@ export function AssistantMessage({
                         >
                             <HeartCrack
                                 className={cn(
-                                    'w-3.5 h-3.5',
+                                    'w-3.5 h-3.5 transition-transform duration-150 active:scale-125',
                                     message.feedback === 'broken-love' && 'text-red-600'
                                 )}
                             />

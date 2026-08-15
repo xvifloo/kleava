@@ -2,11 +2,11 @@
  * KLEAVA AI — CORE TYPE DEFINITIONS
  */
 
-export type ModelProvider = 'kleava' | 'openai' | 'anthropic' | 'custom';
+export type ModelProvider = 'kleava' | 'openai' | 'anthropic' | 'google' | 'local' | 'custom';
 
-export type ModelCapability = 'speed' | 'reasoning' | 'coding' | 'vision';
+export type ModelCapability = 'text' | 'vision' | 'reasoning' | 'coding' | 'speed';
 
-export type ModelGroup = 'Recommended' | 'Kleava' | 'External Providers' | 'Custom';
+export type ModelGroup = 'Recommended' | 'Built-in' | 'Kleava' | 'External Providers' | 'Custom';
 
 export type ResponseLengthMode = 'short' | 'balanced' | 'long';
 
@@ -16,6 +16,7 @@ export interface ModelGenerationConfig {
   streaming: boolean;
   reasoningMode: boolean;
   visionEnabled: boolean;
+  autoModelSelection: boolean;
 }
 
 export interface ModelProfile {
@@ -23,6 +24,7 @@ export interface ModelProfile {
   name: string;
   provider: ModelProvider;
   group: ModelGroup;
+  type: 'builtin' | 'custom';
   description: string;
   capabilities: ModelCapability[];
   badge?: string;
@@ -110,7 +112,7 @@ export interface GeneralSettings {
 }
 
 export interface NotificationSettings {
-  enabled: boolean; // Master toggle
+  enabled: boolean;
   chatActivity: boolean;
   taskCompleted: boolean;
   errorAlerts: boolean;

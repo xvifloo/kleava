@@ -11,19 +11,19 @@ export interface CodeBlockProps {
 }
 
 /**
- * Lightweight and restrained token highlighter for common programming languages.
- * Highlights keywords, strings, comments, numbers, types, and functions without heavy external bloat.
+ * Lightweight, XSS-safe, and restrained token highlighter.
+ * Formats keywords, strings, comments, numbers, types, and functions
+ * in JetBrains Mono with balanced, non-neon contrast.
  */
 function highlightCodeTokens(rawCode: string, lang: string): React.ReactNode[] {
     const lines = rawCode.split('\n');
 
     return lines.map((line, lIdx) => {
-        // Basic syntax tokenization patterns
         const tokens: React.ReactNode[] = [];
         let remaining = line;
         let keyIdx = 0;
 
-        // Regex for keywords, comments, strings, and types
+        // Token matching regex for JS/TS, Python, JSON, Bash, and general languages
         const tokenRegex = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/|#[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\b(?:const|let|var|function|return|import|export|from|if|else|switch|case|break|for|while|try|catch|async|await|class|interface|type|extends|implements|new|this|def|class|print|true|false|null|undefined)\b|\b\d+\b)/g;
 
         let match;
@@ -33,7 +33,6 @@ function highlightCodeTokens(rawCode: string, lang: string): React.ReactNode[] {
             const matchText = match[0];
             const matchStart = match.index;
 
-            // Unmatched prefix text
             if (matchStart > lastIndex) {
                 tokens.push(
                     <span key={`${lIdx}-${keyIdx++}`} className="text-[#D1D5DB]">
@@ -42,7 +41,6 @@ function highlightCodeTokens(rawCode: string, lang: string): React.ReactNode[] {
                 );
             }
 
-            // Token categorization & coloring
             if (matchText.startsWith('//') || matchText.startsWith('/*') || (lang === 'python' && matchText.startsWith('#'))) {
                 tokens.push(
                     <span key={`${lIdx}-${keyIdx++}`} className="text-[#6B7280] italic">
@@ -72,7 +70,6 @@ function highlightCodeTokens(rawCode: string, lang: string): React.ReactNode[] {
             lastIndex = matchStart + matchText.length;
         }
 
-        // Remaining trailing text
         if (lastIndex < remaining.length) {
             tokens.push(
                 <span key={`${lIdx}-${keyIdx++}`} className="text-[#E5E7EB]">
@@ -83,11 +80,11 @@ function highlightCodeTokens(rawCode: string, lang: string): React.ReactNode[] {
 
         return (
             <div key={lIdx} className="table-row leading-relaxed">
-                {/* Line Number Column */}
-                <span className="table-cell pr-4 text-right select-none text-[#4B5563] text-xs font-mono w-8">
+                {/* Unselectable & Un-copyable Line Number Column */}
+                <span className="table-cell pr-4 text-right select-none text-[#4B5563] text-xs font-code w-9">
                     {lIdx + 1}
                 </span>
-                {/* Code Content Column */}
+                {/* Safe Monospace Code Text Column */}
                 <span className="table-cell select-text whitespace-pre font-code text-xs text-[#E5E7EB]">
                     {tokens.length > 0 ? tokens : ' '}
                 </span>
@@ -99,9 +96,11 @@ function highlightCodeTokens(rawCode: string, lang: string): React.ReactNode[] {
 const MIN_BLOCK_HEIGHT = 120;
 
 /**
- * CodeBlock: Clean editorial code container for Kleava AI.
- * Features 6px radius, pure dark surface, separate line numbering column,
- * horizontal/vertical scrolling, manual vertical resizing, and plain code copying.
+ * CodeBlock: Clean editorial code viewer container for Kleava AI.
+ * - 6px corner radius and pure dark surface (#0D0D0D)
+ * - JetBrains Mono typography across all elements
+ * - Independent copy button (copies pure code without line numbers)
+ * - Horizontal overflow scrolling and vertical drag-resizing
  */
 export function CodeBlock({ code, language = 'code', className }: CodeBlockProps) {
     const [isCopied, setIsCopied] = useState(false);
@@ -109,23 +108,32 @@ export function CodeBlock({ code, language = 'code', className }: CodeBlockProps
     const [isDragging, setIsDragging] = useState(false);
 
     const containerRef = useRef<HTMLDivElement>(null);
+    const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const dragStartYRef = useRef<number>(0);
     const dragStartHeightRef = useRef<number>(MIN_BLOCK_HEIGHT);
 
     const rawLanguage = (language || 'code').toLowerCase().trim();
 
-    // Copy raw code to clipboard (excluding line numbers & header)
+    // Clean timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+        };
+    }, []);
+
+    // Copy pure raw code (excluding line numbers & header)
     const handleCopy = async () => {
         try {
             await navigator.clipboard.writeText(code);
             setIsCopied(true);
-            setTimeout(() => setIsCopied(false), 2000);
+            if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+            copyTimeoutRef.current = setTimeout(() => setIsCopied(false), 2000);
         } catch {
             setIsCopied(false);
         }
     };
 
-    // Drag-Resize Logic
+    // Drag-Resize Handlers (Mouse & Touch)
     const handleResizeStart = (clientY: number) => {
         setIsDragging(true);
         dragStartYRef.current = clientY;
@@ -135,7 +143,10 @@ export function CodeBlock({ code, language = 'code', className }: CodeBlockProps
     const handleResizeMove = useCallback((clientY: number) => {
         const deltaY = clientY - dragStartYRef.current;
         const maxViewportHeight = window.innerHeight * 0.8;
-        const newHeight = Math.min(Math.max(dragStartHeightRef.current + deltaY, MIN_BLOCK_HEIGHT), maxViewportHeight);
+        const newHeight = Math.min(
+            Math.max(dragStartHeightRef.current + deltaY, MIN_BLOCK_HEIGHT),
+            maxViewportHeight
+        );
         setCustomHeight(newHeight);
     }, []);
 
@@ -172,7 +183,7 @@ export function CodeBlock({ code, language = 'code', className }: CodeBlockProps
             ref={containerRef}
             style={{ height: customHeight ? `${customHeight}px` : undefined }}
             className={cn(
-                'relative w-full my-3.5 flex flex-col',
+                'relative w-full my-3.5 flex flex-col font-code',
                 'rounded-[6px] overflow-hidden select-none',
                 'bg-[#0D0D0D] text-[#E5E7EB]',
                 'border border-[#262626] shadow-sm',
@@ -181,15 +192,15 @@ export function CodeBlock({ code, language = 'code', className }: CodeBlockProps
                 className
             )}
         >
-            {/* 1. Header Bar: Language Badge & Copy Button */}
-            <div className="flex items-center justify-between px-3.5 py-2 bg-[#171717] border-b border-[#262626] text-xs font-mono">
-                <span className="text-[#9CA3AF] lowercase tracking-wider text-[11px] font-medium">
+            {/* 1. Header Bar: Language Badge & Independent Copy Button */}
+            <div className="flex items-center justify-between px-3.5 py-2 bg-[#171717] border-b border-[#262626] text-xs">
+                <span className="text-[#9CA3AF] lowercase tracking-wider text-[11px] font-medium font-code">
                     {rawLanguage}
                 </span>
 
                 <button
                     type="button"
-                    aria-label={isCopied ? 'Copied code' : 'Copy code'}
+                    aria-label={isCopied ? `Copied ${rawLanguage} code` : `Copy ${rawLanguage} code`}
                     onClick={handleCopy}
                     className={cn(
                         'flex items-center space-x-1.5 px-2 py-0.5 rounded-[4px]',
@@ -200,12 +211,12 @@ export function CodeBlock({ code, language = 'code', className }: CodeBlockProps
                     {isCopied ? (
                         <>
                             <Check className="w-3 h-3 text-kleava-accent" />
-                            <span className="text-[10.5px] text-kleava-accent font-sans font-medium">Copied</span>
+                            <span className="text-[10.5px] text-kleava-accent font-ui font-medium">Copied</span>
                         </>
                     ) : (
                         <>
                             <Copy className="w-3 h-3" />
-                            <span className="text-[10.5px] font-sans">Copy</span>
+                            <span className="text-[10.5px] font-ui">Copy</span>
                         </>
                     )}
                 </button>
@@ -218,11 +229,11 @@ export function CodeBlock({ code, language = 'code', className }: CodeBlockProps
                 </div>
             </div>
 
-            {/* 3. Bottom Drag-Resize Affordance */}
+            {/* 3. Bottom Drag-Resize Handle */}
             <div
                 role="separator"
                 aria-orientation="horizontal"
-                aria-label="Resize code view height"
+                aria-label="Resize code block height"
                 onMouseDown={(e) => handleResizeStart(e.clientY)}
                 onTouchStart={(e) => e.touches[0] && handleResizeStart(e.touches[0].clientY)}
                 className="h-2 w-full flex items-center justify-center cursor-row-resize bg-[#141414] hover:bg-[#202020] transition-colors group"

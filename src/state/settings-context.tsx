@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import {
     GeneralSettings,
     ModelProfile,
@@ -12,6 +12,8 @@ import {
     BUILTIN_MODELS,
     DEFAULT_MODEL_ID,
     DEFAULT_GENERATION_CONFIG,
+    GENERATION_PRESETS,
+    GenerationPreset,
 } from '@/config/models';
 
 export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
@@ -38,42 +40,6 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
     desktopAlerts: false,
 };
 
-const INITIAL_SAMPLE_MEMORIES: MemoryRecord[] = [
-    {
-        id: 'mem_1',
-        title: 'Response Tone & Style',
-        content: 'Prefer concise, calm, and technically precise answers in clean mixed Bangla and English.',
-        category: 'Preference',
-        source: 'Manual',
-        scope: 'Global',
-        enabled: true,
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-        updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-    },
-    {
-        id: 'mem_2',
-        title: 'TypeScript Coding Rules',
-        content: 'Always use strict typing, avoid `any`, prefer functional components with Tailwind CSS.',
-        category: 'Instruction',
-        source: 'Manual',
-        scope: 'Global',
-        enabled: true,
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-        updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    },
-    {
-        id: 'mem_3',
-        title: 'Design System Reference',
-        content: 'Canonical background is #F1FFF9, primary accent is #17BC9B, corner radiuses are 6px and 25px.',
-        category: 'Workflow',
-        source: 'Manual',
-        scope: 'Project',
-        enabled: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-    },
-];
-
 const GENERAL_STORAGE_KEY = 'kleava_general_settings';
 const CUSTOM_MODELS_STORAGE_KEY = 'kleava_custom_models';
 const ACTIVE_MODEL_STORAGE_KEY = 'kleava_active_model_id';
@@ -93,7 +59,8 @@ interface SettingsContextType {
     updateSettings: (partial: Partial<GeneralSettings>) => void;
     setActiveModelId: (modelId: string) => void;
     updateGenerationConfig: (partial: Partial<ModelGenerationConfig>) => void;
-    addCustomModel: (model: Omit<ModelProfile, 'isCustom'>) => void;
+    applyGenerationPreset: (preset: GenerationPreset) => void;
+    addCustomModel: (model: Omit<ModelProfile, 'isCustom' | 'type'>) => boolean;
     updateCustomModel: (id: string, model: Partial<ModelProfile>) => void;
     deleteCustomModel: (id: string) => void;
     setUseMemory: (enabled: boolean) => void;
@@ -114,7 +81,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     const [customModels, setCustomModels] = useState<ModelProfile[]>([]);
     const [generationConfig, setGenerationConfig] = useState<ModelGenerationConfig>(DEFAULT_GENERATION_CONFIG);
     const [useMemory, setUseMemoryState] = useState<boolean>(true);
-    const [memories, setMemories] = useState<MemoryRecord[]>(INITIAL_SAMPLE_MEMORIES);
+    const [memories, setMemories] = useState<MemoryRecord[]>([]);
     const [notifications, setNotifications] = useState<NotificationSettings>(DEFAULT_NOTIFICATION_SETTINGS);
 
     // Restore stored configurations on client mount
@@ -123,11 +90,20 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             const storedGeneral = localStorage.getItem(GENERAL_STORAGE_KEY);
             if (storedGeneral) setSettings((prev) => ({ ...prev, ...JSON.parse(storedGeneral) }));
 
-            const storedModelId = localStorage.getItem(ACTIVE_MODEL_STORAGE_KEY);
-            if (storedModelId) setActiveModelIdState(storedModelId);
-
             const storedCustom = localStorage.getItem(CUSTOM_MODELS_STORAGE_KEY);
-            if (storedCustom) setCustomModels(JSON.parse(storedCustom));
+            const parsedCustom: ModelProfile[] = storedCustom ? JSON.parse(storedCustom) : [];
+            setCustomModels(parsedCustom);
+
+            const storedModelId = localStorage.getItem(ACTIVE_MODEL_STORAGE_KEY);
+            if (storedModelId) {
+                // Validate if stored model ID exists in builtin or custom models
+                const allIds = [...BUILTIN_MODELS, ...parsedCustom].map((m) => m.id);
+                if (allIds.includes(storedModelId)) {
+                    setActiveModelIdState(storedModelId);
+                } else {
+                    setActiveModelIdState(DEFAULT_MODEL_ID);
+                }
+            }
 
             const storedGen = localStorage.getItem(GENERATION_CONFIG_STORAGE_KEY);
             if (storedGen) setGenerationConfig((prev) => ({ ...prev, ...JSON.parse(storedGen) }));
@@ -199,7 +175,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         }
     }, [settings]);
 
-    const models = [...BUILTIN_MODELS, ...customModels];
+    // Combined models catalogue
+    const models = useMemo(() => [...BUILTIN_MODELS, ...customModels], [customModels]);
 
     const updateSettings = useCallback((partial: Partial<GeneralSettings>) => {
         setSettings((prev) => {
@@ -234,18 +211,45 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         });
     }, []);
 
-    const addCustomModel = useCallback((modelData: Omit<ModelProfile, 'isCustom'>) => {
-        setCustomModels((prev) => {
-            const newModel: ModelProfile = { ...modelData, isCustom: true };
-            const next = [...prev, newModel];
-            try {
-                localStorage.setItem(CUSTOM_MODELS_STORAGE_KEY, JSON.stringify(next));
-            } catch {
-                // Safe write fallback
-            }
-            return next;
-        });
+    const applyGenerationPreset = useCallback((preset: GenerationPreset) => {
+        const target = GENERATION_PRESETS[preset];
+        if (target) {
+            setGenerationConfig((prev) => {
+                const next = { ...prev, ...target.config };
+                try {
+                    localStorage.setItem(GENERATION_CONFIG_STORAGE_KEY, JSON.stringify(next));
+                } catch {
+                    // Safe write fallback
+                }
+                return next;
+            });
+        }
     }, []);
+
+    const addCustomModel = useCallback(
+        (modelData: Omit<ModelProfile, 'isCustom' | 'type'>): boolean => {
+            const isDuplicate = models.some((m) => m.id.toLowerCase() === modelData.id.toLowerCase());
+            if (isDuplicate) return false;
+
+            setCustomModels((prev) => {
+                const newModel: ModelProfile = {
+                    ...modelData,
+                    isCustom: true,
+                    type: 'custom',
+                    group: 'Custom',
+                };
+                const next = [...prev, newModel];
+                try {
+                    localStorage.setItem(CUSTOM_MODELS_STORAGE_KEY, JSON.stringify(next));
+                } catch {
+                    // Safe write fallback
+                }
+                return next;
+            });
+            return true;
+        },
+        [models]
+    );
 
     const updateCustomModel = useCallback((id: string, modelData: Partial<ModelProfile>) => {
         setCustomModels((prev) => {
@@ -371,8 +375,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setActiveModelIdState(DEFAULT_MODEL_ID);
         setGenerationConfig(DEFAULT_GENERATION_CONFIG);
         setUseMemoryState(true);
-        setMemories(INITIAL_SAMPLE_MEMORIES);
+        setMemories([]);
         setNotifications(DEFAULT_NOTIFICATION_SETTINGS);
+        setCustomModels([]);
         try {
             localStorage.removeItem(GENERAL_STORAGE_KEY);
             localStorage.removeItem(ACTIVE_MODEL_STORAGE_KEY);
@@ -380,6 +385,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             localStorage.removeItem(USE_MEMORY_STORAGE_KEY);
             localStorage.removeItem(MEMORIES_STORAGE_KEY);
             localStorage.removeItem(NOTIFICATIONS_STORAGE_KEY);
+            localStorage.removeItem(CUSTOM_MODELS_STORAGE_KEY);
         } catch {
             // Safe storage reset fallback
         }
@@ -398,6 +404,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
                 updateSettings,
                 setActiveModelId,
                 updateGenerationConfig,
+                applyGenerationPreset,
                 addCustomModel,
                 updateCustomModel,
                 deleteCustomModel,
