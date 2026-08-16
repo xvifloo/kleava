@@ -16,8 +16,8 @@ export function XviFlooLogo({ className, size = 32, ...props }: XviFlooLogoProps
         <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 508 508"
-            width={size}
-            height={size}
+            width={46}
+            height={46}
             className={cn('select-none shrink-0', className)}
             {...props}
         >
