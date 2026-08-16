@@ -11,8 +11,7 @@ export interface ComposerAttachmentButtonProps {
 }
 
 /**
- * ComposerAttachmentButton: Canonical 38x38px attachment control for Kleava AI.
- * Surface: #E2EEE9 (hover: #E2F5F0), 25px corner radius, triggering accessible native file input.
+ * ComposerAttachmentButton: 36x36px control in #E2EEE9 matching ModelSelector & SendButton.
  */
 export function ComposerAttachmentButton({
     onFilesSelected,
@@ -31,7 +30,7 @@ export function ComposerAttachmentButton({
     };
 
     return (
-        <div className="relative inline-flex items-center select-none">
+        <div className="relative inline-flex items-center select-none shrink-0">
             {/* Hidden Native File Input */}
             <input
                 ref={fileInputRef}
@@ -43,14 +42,14 @@ export function ComposerAttachmentButton({
                 className="hidden"
             />
 
-            {/* 38x38px, 25px radius Control in #E2EEE9 */}
+            {/* 36x36px Control in #E2EEE9 */}
             <button
                 type="button"
                 aria-label="Add file attachment"
                 disabled={disabled}
                 onClick={() => fileInputRef.current?.click()}
                 className={cn(
-                    'w-[38px] h-[38px] rounded-kleava-control flex items-center justify-center flex-shrink-0',
+                    'w-[36px] h-[36px] min-w-[36px] min-h-[36px] rounded-kleava-control flex items-center justify-center shrink-0',
                     'bg-[#E2EEE9] text-kleava-text-secondary',
                     'hover:bg-[#E2F5F0] hover:text-kleava-accent',
                     'active:scale-95 transition-all duration-150',

@@ -10,7 +10,6 @@ export interface MicButtonProps {
     className?: string;
 }
 
-// Clean, fully-typed Web Speech API interfaces
 interface SpeechRecognitionEvent {
     results: {
         [index: number]: {
@@ -43,8 +42,7 @@ interface SpeechWindow extends Window {
 }
 
 /**
- * MicButton: Voice input controller utilizing the Web Speech API with
- * graceful fallback, active pulse indicator, and safe permission management.
+ * MicButton: 36x36px control matching the height of SendButton and ModelSelector.
  */
 export function MicButton({ onTranscript, disabled = false, className }: MicButtonProps) {
     const [isListening, setIsListening] = useState(false);
@@ -106,7 +104,7 @@ export function MicButton({ onTranscript, disabled = false, className }: MicButt
 
     const toggleListening = () => {
         if (!hasSupport) {
-            showFeedback('Speech recognition unsupported in this browser');
+            showFeedback('Speech recognition unsupported');
             return;
         }
 
@@ -125,7 +123,7 @@ export function MicButton({ onTranscript, disabled = false, className }: MicButt
     };
 
     return (
-        <div className="relative inline-flex items-center select-none font-ui">
+        <div className="relative inline-flex items-center select-none font-ui shrink-0">
             <button
                 type="button"
                 aria-label={isListening ? 'Stop listening' : 'Voice input'}
@@ -133,8 +131,8 @@ export function MicButton({ onTranscript, disabled = false, className }: MicButt
                 disabled={disabled}
                 onClick={toggleListening}
                 className={cn(
-                    'w-7 h-7 rounded-kleava-control flex items-center justify-center',
-                    'transition-all duration-150 active:scale-95 focus-ring-kleava',
+                    'w-[36px] h-[36px] min-w-[36px] min-h-[36px] rounded-kleava-control flex items-center justify-center shrink-0',
+                    'transition-all duration-150 active:scale-95 focus-ring-kleava border border-kleava-border-subtle/50 shadow-xs',
                     isListening
                         ? 'bg-kleava-accent/15 text-kleava-accent ring-2 ring-kleava-accent/40 animate-pulse'
                         : 'bg-kleava-surface-soft text-kleava-text-secondary hover:text-kleava-accent hover:bg-kleava-surface-light',
@@ -143,17 +141,16 @@ export function MicButton({ onTranscript, disabled = false, className }: MicButt
                 )}
             >
                 {isListening ? (
-                    <Mic className="w-3.5 h-3.5 text-kleava-accent" />
+                    <Mic className="w-4 h-4 text-kleava-accent" />
                 ) : hasSupport ? (
-                    <Mic className="w-3.5 h-3.5" />
+                    <Mic className="w-4 h-4" />
                 ) : (
-                    <MicOff className="w-3.5 h-3.5 opacity-60" />
+                    <MicOff className="w-4 h-4 opacity-60" />
                 )}
             </button>
 
-            {/* Ephemeral Feedback Tooltip */}
             {feedbackMessage && (
-                <div className="absolute right-0 bottom-9 z-50 whitespace-nowrap px-2.5 py-1 rounded bg-kleava-text-primary text-white typography-metadata text-[10px] shadow-sm animate-in fade-in">
+                <div className="absolute right-0 bottom-11 z-50 whitespace-nowrap px-2.5 py-1 rounded bg-kleava-text-primary text-white typography-metadata text-[10px] shadow-sm animate-in fade-in">
                     {feedbackMessage}
                 </div>
             )}

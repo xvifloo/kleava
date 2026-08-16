@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { fontVariables } from '@/styles/fonts';
 import { SettingsProvider } from '@/state/settings-context';
 import '@/styles/globals.css';
@@ -8,10 +8,15 @@ export const metadata: Metadata = {
   description: 'Calm, minimal, multi-model AI workspace and context engine.',
 };
 
-/**
- * Early Theme & Setting Initialization Script
- * Injected immediately in <head> to prevent FOUC (Flash of Unstyled Color Theme)
- */
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+  interactiveWidget: 'resizes-content', // Mobile keyboard smooth resize fix
+};
+
 const themeInitScript = `
   (function() {
     try {
@@ -60,7 +65,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="min-h-screen bg-kleava-bg text-kleava-text-primary font-ui antialiased">
+      <body className="min-h-[100dvh] h-[100dvh] bg-kleava-bg text-kleava-text-primary font-ui antialiased overflow-hidden">
         <SettingsProvider>{children}</SettingsProvider>
       </body>
     </html>

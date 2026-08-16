@@ -69,8 +69,8 @@ function renderCapabilityIcon(cap: ModelCapability) {
 }
 
 /**
- * ModelSelector: Dedicated multi-model picker popover synchronized with
- * global Settings state, capability indicators, model search, and keyboard arrow navigation.
+ * ModelSelector: 36px height trigger matching the attachment button,
+ * with search and keyboard arrow navigation.
  */
 export function ModelSelector({
     selectedModelId,
@@ -89,7 +89,6 @@ export function ModelSelector({
 
     const currentModel = models.find((m) => m.id === selectedModelId) || models[0];
 
-    // Filtered models list
     const filteredModels = useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
         if (!q) return models;
@@ -106,7 +105,6 @@ export function ModelSelector({
         [filteredModels]
     );
 
-    // Close on outside click or Escape
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -132,14 +130,12 @@ export function ModelSelector({
         };
     }, [isOpen]);
 
-    // Focus search input when popover opens
     useEffect(() => {
         if (isOpen) {
             setTimeout(() => searchInputRef.current?.focus(), 50);
         }
     }, [isOpen]);
 
-    // Keyboard navigation through model options
     const handleMenuKeyDown = useCallback(
         (e: React.KeyboardEvent) => {
             if (!isOpen || availableSelectable.length === 0) return;
@@ -170,11 +166,11 @@ export function ModelSelector({
 
     return (
         <div
-            className={cn('relative inline-flex items-center select-none font-ui', className)}
+            className={cn('relative inline-flex items-center select-none font-ui shrink-0', className)}
             ref={menuRef}
             onKeyDown={handleMenuKeyDown}
         >
-            {/* Compact Trigger Button */}
+            {/* 36px Height Trigger Button matching Attachment Button */}
             <button
                 ref={triggerRef}
                 type="button"
@@ -184,23 +180,23 @@ export function ModelSelector({
                 disabled={disabled}
                 onClick={() => setIsOpen(!isOpen)}
                 className={cn(
-                    'h-7 px-2.5 rounded-kleava-control flex items-center space-x-1.5',
+                    'h-[36px] min-h-[36px] px-3 rounded-kleava-control flex items-center space-x-1.5',
                     'bg-kleava-surface-soft text-kleava-text-primary text-xs font-medium',
                     'hover:bg-kleava-surface-light hover:text-kleava-accent transition-colors',
-                    'border border-kleava-border-subtle/50',
+                    'border border-kleava-border-subtle/50 shadow-xs',
                     'focus-ring-kleava',
                     disabled && 'opacity-60 cursor-not-allowed'
                 )}
             >
                 {currentModel?.id === 'auto' ? (
-                    <Sparkles className="w-3 h-3 text-kleava-accent flex-shrink-0" />
+                    <Sparkles className="w-3.5 h-3.5 text-kleava-accent shrink-0" />
                 ) : (
-                    <Cpu className="w-3 h-3 text-kleava-text-secondary flex-shrink-0" />
+                    <Cpu className="w-3.5 h-3.5 text-kleava-text-secondary shrink-0" />
                 )}
                 <span className="truncate max-w-[90px] sm:max-w-[120px]">
                     {currentModel?.name || 'Kleava 0.7'}
                 </span>
-                <ChevronDown className="w-3 h-3 text-kleava-text-secondary flex-shrink-0" />
+                <ChevronDown className="w-3.5 h-3.5 text-kleava-text-secondary shrink-0" />
             </button>
 
             {/* Floating Popover Window */}
@@ -209,7 +205,7 @@ export function ModelSelector({
                     role="menu"
                     aria-label="AI Model Registry Options"
                     className={cn(
-                        'absolute left-0 bottom-9 z-50',
+                        'absolute left-0 bottom-11 z-50',
                         'w-[280px] sm:w-[310px] max-h-[360px] flex flex-col',
                         'bg-kleava-surface text-kleava-text-primary',
                         'rounded-kleava-md border border-kleava-border-subtle/80',
@@ -217,8 +213,7 @@ export function ModelSelector({
                         'animate-in fade-in zoom-in-95 duration-150 origin-bottom-left'
                     )}
                 >
-                    {/* Top Search Input inside Model Selector */}
-                    <div className="relative mb-2 flex items-center flex-shrink-0">
+                    <div className="relative mb-2 flex items-center shrink-0">
                         <Search className="absolute left-2.5 w-3 h-3 text-kleava-text-secondary/70 pointer-events-none" />
                         <input
                             ref={searchInputRef}
@@ -230,7 +225,6 @@ export function ModelSelector({
                         />
                     </div>
 
-                    {/* Grouped Models Container */}
                     <div className="flex-1 overflow-y-auto scrollbar-none space-y-2 pr-0.5 min-h-[140px]">
                         {filteredModels.length === 0 ? (
                             <div className="py-6 text-center text-xs text-kleava-text-secondary">
@@ -243,14 +237,12 @@ export function ModelSelector({
 
                                 return (
                                     <div key={groupName} className="flex flex-col space-y-0.5">
-                                        {/* Group Heading */}
                                         <div className="px-2 py-0.5 flex items-center justify-between">
                                             <span className="typography-metadata uppercase tracking-wider text-[9.5px] font-semibold text-kleava-text-secondary/70">
                                                 {groupName}
                                             </span>
                                         </div>
 
-                                        {/* Model Items in Group */}
                                         {modelsInGroup.map((model) => {
                                             const isSelected = model.id === currentModel?.id;
 
@@ -269,7 +261,7 @@ export function ModelSelector({
                                                         }
                                                     }}
                                                     className={cn(
-                                                        'w-full flex items-start justify-between px-2 py-1.5 rounded-kleava-sm text-left',
+                                                        'w-full flex items-start justify-between px-2.5 py-1.5 rounded-kleava-sm text-left',
                                                         'transition-colors duration-150',
                                                         isSelected
                                                             ? 'bg-kleava-surface-soft text-kleava-text-primary font-medium'
@@ -282,7 +274,6 @@ export function ModelSelector({
                                                         <div className="flex items-center space-x-1.5 flex-wrap">
                                                             <span className="text-xs font-medium truncate">{model.name}</span>
 
-                                                            {/* Provider Badge */}
                                                             <span className="typography-metadata text-[8.5px] uppercase px-1 py-0.2 rounded bg-kleava-surface-soft text-kleava-text-secondary/80 font-mono">
                                                                 {model.provider}
                                                             </span>
@@ -301,22 +292,17 @@ export function ModelSelector({
                                                             )}
                                                         </div>
 
-                                                        {/* Short Description */}
-                                                        <div className="flex items-center justify-between mt-0.5">
-                                                            <span className="typography-metadata text-[10px] text-kleava-text-secondary line-clamp-1">
-                                                                {model.description}
-                                                            </span>
-                                                        </div>
+                                                        <span className="typography-metadata text-[10px] text-kleava-text-secondary line-clamp-1 mt-0.5">
+                                                            {model.description}
+                                                        </span>
 
-                                                        {/* Minimal Capabilities row */}
                                                         <div className="flex items-center space-x-1 mt-1">
                                                             {model.capabilities.map((cap) => renderCapabilityIcon(cap))}
                                                         </div>
                                                     </div>
 
-                                                    {/* Selected Checkmark */}
                                                     {isSelected && (
-                                                        <Check className="w-3.5 h-3.5 text-kleava-accent flex-shrink-0 mt-0.5" />
+                                                        <Check className="w-3.5 h-3.5 text-kleava-accent shrink-0 mt-0.5" />
                                                     )}
                                                 </button>
                                             );

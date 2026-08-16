@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Pin, GripVertical } from 'lucide-react';
 import { ChatSession, ChatTimeGroup } from '@/types';
 import { groupChatsByDate, formatRelativeTime } from '@/lib/date-utils';
-import { highlightMatch, matchesChatQuery } from '@/lib/search-utils';
+import { highlightMatch } from '@/lib/search-utils';
 import { ChatItemActions } from '@/components/layout/chat-item-actions';
 import { cn } from '@/lib/utils';
 
@@ -23,9 +23,8 @@ export interface ChatListProps {
 }
 
 /**
- * ChatList: Grouped recent conversation list supporting chronological categories
- * (Pinned, Today, Yesterday, Previous 7 Days, Older), HTML5 drag reorder, inline rename,
- * subtle search match highlighting, and two-dot contextual action menus.
+ * ChatList: Renders active recent conversation groups (Pinned, Today, Yesterday, Previous 7 Days, Older).
+ * Pinned chats support smooth HTML5 drag reordering with local storage state persistence.
  */
 export function ChatList({
   chats,
@@ -45,14 +44,9 @@ export function ChatList({
   const [draggedChatId, setDraggedChatId] = useState<string | null>(null);
   const [openMenuChatId, setOpenMenuChatId] = useState<string | null>(null);
 
-  // Memoized search filtering
-  const filteredChats = useMemo(() => {
-    const trimmed = searchQuery.trim();
-    if (!trimmed) return chats;
-    return chats.filter((c) => matchesChatQuery(c, trimmed));
-  }, [chats, searchQuery]);
-
-  const groups = useMemo(() => groupChatsByDate(filteredChats), [filteredChats]);
+  // Group unarchived chats
+  const activeChatsOnly = useMemo(() => chats.filter((c) => !c.isArchived), [chats]);
+  const groups = useMemo(() => groupChatsByDate(activeChatsOnly), [activeChatsOnly]);
   const groupKeys: ChatTimeGroup[] = ['Pinned', 'Today', 'Yesterday', 'Previous 7 Days', 'Older'];
   const hasResults = Object.values(groups).some((g) => g.length > 0);
 
@@ -102,31 +96,21 @@ export function ChatList({
     setDraggedChatId(null);
   };
 
-  // Empty Search / No Chats State
   if (!hasResults) {
     return (
       <div className="py-8 text-center px-4 flex flex-col items-center justify-center space-y-2 select-none">
-        <p className="typography-caption text-kleava-text-secondary">
-          {searchQuery.trim() ? `No chats found for "${searchQuery}"` : 'No recent chats yet.'}
+        <p className="typography-caption text-kleava-text-secondary text-xs">
+          No recent chats yet.
         </p>
-        {searchQuery.trim() && onClearSearch && (
-          <button
-            type="button"
-            onClick={onClearSearch}
-            className="typography-metadata text-xs text-kleava-accent hover:underline focus-ring-kleava"
-          >
-            Clear search
-          </button>
-        )}
       </div>
     );
   }
 
   return (
-    <div className={cn('w-full flex flex-col space-y-3.5 select-none', className)}>
+    <div className={cn('w-full flex flex-col space-y-3.5 select-none font-ui', className)}>
       {groupKeys.map((groupKey) => {
         const chatItems = groups[groupKey];
-        if (chatItems.length === 0) return null; // Suppress empty groups
+        if (chatItems.length === 0) return null;
 
         const isPinnedGroup = groupKey === 'Pinned';
 
@@ -153,9 +137,9 @@ export function ChatList({
                 return (
                   <div
                     key={chat.id}
-                    draggable={isPinnedGroup && !isEditing && !searchQuery.trim()}
+                    draggable={isPinnedGroup && !isEditing}
                     onDragStart={(e) => handleDragStart(e, chat.id)}
-                    onDragOver={(e) => isPinnedGroup && !searchQuery.trim() && handleDragOver(e, chat.id)}
+                    onDragOver={(e) => isPinnedGroup && handleDragOver(e, chat.id)}
                     onDragEnd={handleDragEnd}
                     onClick={() => !isEditing && onSelectChat(chat.id)}
                     title={chat.title}
@@ -164,18 +148,18 @@ export function ChatList({
                       'flex items-center justify-between space-x-2',
                       'transition-colors duration-150 cursor-pointer',
                       isActive
-                        ? 'bg-kleava-surface-soft text-kleava-text-primary font-medium'
-                        : 'text-kleava-text-secondary hover:text-kleava-text-primary hover:bg-kleava-surface-light/50',
+                        ? 'bg-kleava-surface-soft dark:bg-[#1E2A27] text-kleava-text-primary font-medium'
+                        : 'text-kleava-text-secondary hover:text-kleava-text-primary hover:bg-kleava-surface-light/50 dark:hover:bg-[#1E2A27]/40',
                       isDragging && 'opacity-40 border border-dashed border-kleava-accent',
                       'focus-ring-kleava'
                     )}
                   >
-                    {/* Drag Handle for Pinned Items (Hidden during active search) */}
-                    {isPinnedGroup && !searchQuery.trim() && (
-                      <GripVertical className="w-3 h-3 text-kleava-text-secondary/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing flex-shrink-0" />
+                    {/* Drag Handle for Pinned Items */}
+                    {isPinnedGroup && (
+                      <GripVertical className="w-3 h-3 text-kleava-text-secondary/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing shrink-0" />
                     )}
 
-                    {/* Chat Title with Search Match Highlighting & Relative Timestamp */}
+                    {/* Chat Title & Relative Timestamp */}
                     <div className="flex-1 min-w-0 pr-1">
                       {isEditing ? (
                         <input
@@ -203,15 +187,16 @@ export function ChatList({
                       )}
                     </div>
 
-                    {/* Signature Two-Dot Action Control */}
+                    {/* Refined Circular Two-Dot Action Button */}
                     <div
-                      className="opacity-80 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                      className="opacity-80 group-hover:opacity-100 transition-opacity shrink-0"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <ChatItemActions
                         chatId={chat.id}
                         chatTitle={chat.title}
                         isPinned={chat.isPinned}
+                        isArchived={chat.isArchived}
                         isOpen={isMenuOpen}
                         onOpenToggle={(id) =>
                           setOpenMenuChatId((prev) => (prev === id ? null : id))

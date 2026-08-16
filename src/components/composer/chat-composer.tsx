@@ -25,13 +25,12 @@ const DEFAULT_HEIGHT = 116;
 const MIN_HEIGHT = 116;
 
 /**
- * ChatComposer: Core adaptive workspace composer for Kleava AI.
- * - Base default height: 116px
- * - Multiline input with Hind Siliguri/Geist typography
- * - Pure vertical drag-resize (up to 80% viewport height)
- * - Dedicated Expanded Mode for comfortable long-form writing
- * - 38x38px Attachment control in #E2EEE9
- * - Reusable ModelSelector, MicButton, and Rounded-Hexagonal SendButton
+ * ChatComposer:
+ * - Dynamic Auto-grow height when text expands
+ * - 15px readable multiline text input
+ * - Manual vertical resize up to 80% viewport height
+ * - Non-overlapping attachment tray
+ * - Unified 36px bottom controls bar
  */
 export function ChatComposer({
   onSend,
@@ -62,10 +61,40 @@ export function ChatComposer({
   const composerRef = useRef<HTMLDivElement>(null);
   const dragStartYRef = useRef<number>(0);
   const dragStartHeightRef = useRef<number>(DEFAULT_HEIGHT);
+  const isManuallyResizedRef = useRef<boolean>(false);
+
+  // Auto-grow calculation when typing or adding attachments
+  const adjustHeightForContent = useCallback(() => {
+    if (isExpandedMode || isManuallyResizedRef.current) return;
+
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    // Reset textarea height to calculate natural scrollHeight
+    textarea.style.height = 'auto';
+    const textScrollHeight = textarea.scrollHeight;
+
+    // Tray height if files are attached
+    const trayHeight = attachments.length > 0 ? 38 : 0;
+    // Top bar (18px) + Bottom controls dock (50px) + Internal margins (12px)
+    const chromeHeight = 68 + trayHeight;
+
+    const calculatedHeight = Math.min(
+      Math.max(textScrollHeight + chromeHeight, MIN_HEIGHT + trayHeight),
+      window.innerHeight * 0.55 // auto-grow up to 55% screen before scrollbar activates
+    );
+
+    setHeight(calculatedHeight);
+  }, [attachments.length, isExpandedMode]);
+
+  useEffect(() => {
+    adjustHeightForContent();
+  }, [text, attachments.length, adjustHeightForContent]);
 
   // Manual Vertical Drag-Resize Handlers
   const handleResizeStart = (clientY: number) => {
     setIsDraggingHandle(true);
+    isManuallyResizedRef.current = true;
     dragStartYRef.current = clientY;
     dragStartHeightRef.current = height;
   };
@@ -114,27 +143,30 @@ export function ChatComposer({
     };
   }, [isDraggingHandle, handleResizeMove, handleResizeEnd]);
 
-  // Toggle Expanded Workspace Mode
+  // Toggle Expanded Mode
   const toggleExpandedMode = () => {
     if (isExpandedMode) {
       setIsExpandedMode(false);
+      isManuallyResizedRef.current = false;
       setHeight(DEFAULT_HEIGHT);
     } else {
       setIsExpandedMode(true);
+      isManuallyResizedRef.current = true;
       setHeight(Math.min(window.innerHeight * 0.8, 520));
     }
     setTimeout(() => textareaRef.current?.focus(), 100);
   };
 
-  // Submit Handler: Normalizes payload and dispatches outgoing prompt
+  // Submit Handler
   const handleSend = () => {
-    if (isProcessing) return; // Prevent duplicate submissions during active generation
+    if (isProcessing) return;
     const trimmed = text.trim();
     if (!trimmed && attachments.length === 0) return;
 
     onSend?.(trimmed, attachments, selectedModelId);
     setText('');
     clearAttachments();
+    isManuallyResizedRef.current = false;
     setHeight(DEFAULT_HEIGHT);
     setIsExpandedMode(false);
   };
@@ -151,7 +183,6 @@ export function ChatComposer({
     textareaRef.current?.focus();
   };
 
-  // Enabled if valid trimmed text exists OR file attachments are present
   const canSend = text.trim().length > 0 || attachments.length > 0;
 
   return (
@@ -162,14 +193,13 @@ export function ChatComposer({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={cn(
-        // Outer Container: 6px radius, pure #FFFFFF surface, subtle border & shadow
+        // Borderless card with soft accent shadow
         'relative w-full rounded-kleava-sm select-none font-ui',
         'bg-kleava-surface text-kleava-text-primary',
-        'border border-kleava-border-subtle/80 shadow-kleava-subtle',
-        'flex flex-col justify-between transition-[box-shadow,border-color] duration-150',
-        isDraggingHandle && 'shadow-md border-kleava-accent/50 ring-1 ring-kleava-accent/30',
-        isDraggingFile && 'border-dashed border-2 border-kleava-accent bg-kleava-surface-light/40',
-        isExpandedMode && 'shadow-kleava-floating border-kleava-border-subtle',
+        'border-0 shadow-[0_4px_24px_-4px_rgba(23,188,155,0.14),0_2px_8px_-2px_rgba(23,188,155,0.08)]',
+        'flex flex-col justify-between transition-[box-shadow] duration-200',
+        isDraggingHandle && 'shadow-[0_6px_28px_-4px_rgba(23,188,155,0.22)]',
+        isDraggingFile && 'ring-2 ring-dashed ring-kleava-accent bg-kleava-surface-light/40',
         className
       )}
     >
@@ -190,37 +220,37 @@ export function ChatComposer({
         isDragging={isDraggingHandle}
       />
 
-      {/* 3. Top-Left Context Label & Expand Button */}
-      <div className="pt-2 px-3 flex items-center justify-between flex-shrink-0 select-none">
-        <span className="typography-metadata text-[10.5px] text-kleava-text-secondary/70 tracking-wide">
-          Chat with Kleava...
-        </span>
+      {/* 3. Top Action Row (Compact Error & Maximize Toggle) */}
+      <div className="pt-2 px-3 flex items-center justify-between shrink-0 select-none">
+        {errorMessage ? (
+          <span className="typography-metadata text-[10.5px] text-kleava-destructive font-medium animate-in fade-in">
+            {errorMessage}
+          </span>
+        ) : (
+          <span />
+        )}
 
-        <div className="flex items-center space-x-2">
-          {errorMessage && (
-            <span className="typography-metadata text-[10.5px] text-kleava-destructive font-medium animate-in fade-in">
-              {errorMessage}
-            </span>
-          )}
-
-          <button
-            type="button"
-            aria-label={isExpandedMode ? 'Collapse writing mode' : 'Expand writing mode'}
-            onClick={toggleExpandedMode}
-            className="p-1 rounded text-kleava-text-secondary/60 hover:text-kleava-text-primary hover:bg-kleava-surface-soft transition-colors focus-ring-kleava"
-          >
-            {isExpandedMode ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
-          </button>
-        </div>
+        <button
+          type="button"
+          aria-label={isExpandedMode ? 'Collapse writing mode' : 'Expand writing mode'}
+          onClick={toggleExpandedMode}
+          className="p-1 rounded text-kleava-text-secondary/50 hover:text-kleava-text-primary hover:bg-kleava-surface-soft transition-colors focus-ring-kleava"
+        >
+          {isExpandedMode ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
+        </button>
       </div>
 
-      {/* 4. Modular Attachment Previews Tray */}
-      <ComposerAttachmentTray
-        attachments={attachments}
-        onRemoveAttachment={removeAttachment}
-      />
+      {/* 4. Non-Overlapping Attachment Tray */}
+      {attachments.length > 0 && (
+        <div className="shrink-0 mb-1">
+          <ComposerAttachmentTray
+            attachments={attachments}
+            onRemoveAttachment={removeAttachment}
+          />
+        </div>
+      )}
 
-      {/* 5. Primary Multi-line Textarea Area */}
+      {/* 5. Fluid 15px Multi-line Textarea Area */}
       <div className="flex-1 px-3 py-1 flex flex-col min-h-0 overflow-hidden">
         <textarea
           ref={textareaRef}
@@ -232,17 +262,17 @@ export function ChatComposer({
           aria-label="Message prompt"
           className={cn(
             'w-full h-full resize-none bg-transparent',
-            'typography-body text-xs sm:text-sm text-kleava-text-primary leading-relaxed',
-            'placeholder:text-kleava-text-secondary/60',
+            'text-[15px] leading-[1.65] font-bangla text-kleava-text-primary', // 15px clear readable size
+            'placeholder:text-kleava-text-secondary/60 placeholder:font-ui placeholder:text-sm',
             'focus:outline-none scrollbar-none',
             isProcessing && 'opacity-70'
           )}
         />
       </div>
 
-      {/* 6. Dedicated Bottom Controls Dock */}
-      <div className="px-2.5 pb-2 pt-1 flex items-center justify-between flex-shrink-0 border-t border-kleava-border-subtle/30 select-none">
-        {/* Left: 38x38 Attachment Button in #E2EEE9 & Model Selector */}
+      {/* 6. Clean Bottom Controls Dock (Unified 36px Height on All Buttons) */}
+      <div className="px-2.5 pb-2.5 pt-1.5 flex items-center justify-between shrink-0 select-none">
+        {/* Left Side: 36px Attachment Button & 36px Model Selector */}
         <div className="flex items-center space-x-1.5">
           <ComposerAttachmentButton
             onFilesSelected={addFiles}
@@ -256,7 +286,7 @@ export function ChatComposer({
           />
         </div>
 
-        {/* Right: Microphone Voice Button & Soft Rounded-Hexagonal Send Button */}
+        {/* Right Side: 36px Microphone & 36x36px Circular-Hexagonal Send Button */}
         <div className="flex items-center space-x-1.5">
           <MicButton
             onTranscript={handleVoiceTranscript}

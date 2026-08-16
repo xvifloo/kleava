@@ -14,11 +14,8 @@ export interface SendButtonProps {
 }
 
 /**
- * SendButton: Canonical soft-faceted rounded-hexagonal send control for Kleava AI.
- * - Idle state: Displays a crisp white upward arrow
- * - Active state: Vibrant #17BC9B accent fill with subtle hover feedback
- * - Processing state: Smoothly morphs into a stop/square icon with gentle CCW rotation
- * - Fully accessible with dynamic aria-labels and keyboard focus management
+ * SendButton: Fixed-dimension (36x36px) symmetrical circular-hexagonal send control.
+ * Perfectly balanced width and height with zero expansion during generation.
  */
 export function SendButton({
     canSend,
@@ -50,32 +47,31 @@ export function SendButton({
                     ? 'Stop generating response'
                     : canSend
                         ? 'Send message'
-                        : 'Send message (disabled: enter a prompt or attach a file)'
+                        : 'Send message (disabled)'
             }
             aria-live="polite"
             disabled={!isInteractive}
             onClick={handleClick}
             className={cn(
-                // Outer 38x38 rounded-control frame rhythm
-                'relative w-[38px] h-[38px] flex items-center justify-center select-none flex-shrink-0',
-                'transition-all duration-200 ease-out focus-ring-kleava',
-                isInteractive
-                    ? 'cursor-pointer active:scale-95'
-                    : 'cursor-not-allowed opacity-60',
+                // Strictly fixed 36x36px square frame
+                'relative w-[36px] h-[36px] min-w-[36px] max-w-[36px] min-h-[36px] max-h-[36px]',
+                'flex items-center justify-center select-none shrink-0 aspect-square',
+                'transition-all duration-150 ease-out focus-ring-kleava',
+                isInteractive ? 'cursor-pointer active:scale-95' : 'cursor-not-allowed opacity-50',
                 className
             )}
         >
-            {/* 1. Soft-Faceted Rounded-Hexagon Vector Silhouette */}
+            {/* 1. Symmetrical Soft Rounded-Hexagon Vector Silhouette (1:1 Ratio) */}
             <svg
-                viewBox="0 0 38 38"
+                viewBox="0 0 40 40"
                 aria-hidden="true"
                 className={cn(
-                    'absolute inset-0 w-full h-full transform-gpu transition-transform duration-300 pointer-events-none',
+                    'absolute inset-0 w-full h-full aspect-square transform-gpu transition-transform duration-300 pointer-events-none',
                     isProcessing ? 'animate-spin-reverse' : ''
                 )}
             >
                 <path
-                    d="M19 3.8 C24 3.8 32.2 8.2 34 11.8 C35.8 15.4 35.8 22.6 34 26.2 C32.2 29.8 24 34.2 19 34.2 C14 34.2 5.8 29.8 4 26.2 C2.2 22.6 2.2 15.4 4 11.8 C5.8 8.2 14 3.8 19 3.8 Z"
+                    d="M 20 3.5 C 23.5 3.5, 33 8.5, 34.5 11.5 C 36 14.5, 36 25.5, 34.5 28.5 C 33 31.5, 23.5 36.5, 20 36.5 C 16.5 36.5, 7 31.5, 5.5 28.5 C 4 25.5, 4 14.5, 5.5 11.5 C 7 8.5, 16.5 3.5, 20 3.5 Z"
                     className={cn(
                         'transition-colors duration-200',
                         isInteractive ? 'fill-kleava-accent' : 'fill-kleava-surface-soft'
@@ -83,16 +79,14 @@ export function SendButton({
                 />
             </svg>
 
-            {/* 2. Interactive Icon: Upward Arrow <-> Stop Square Morph */}
+            {/* 2. Centered Glyph: Arrow Up <-> Stop Square */}
             <div className="relative z-10 flex items-center justify-center pointer-events-none">
                 {isProcessing ? (
-                    /* Stop Square Glyph */
                     <span
-                        className="w-3 h-3 rounded-[2.5px] bg-white transition-all duration-150 scale-100 shadow-xs"
+                        className="w-2.5 h-2.5 rounded-[2px] bg-white transition-all duration-150 scale-100 shadow-xs"
                         aria-hidden="true"
                     />
                 ) : (
-                    /* Upward Send Arrow */
                     <ArrowUp
                         className={cn(
                             'w-4 h-4 stroke-[2.7] transition-all duration-200',

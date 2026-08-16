@@ -10,6 +10,7 @@ import {
   CandidateMemorySuggestion,
   MemoryCategory,
   MemoryScope,
+  SettingsSection,
 } from '@/types';
 import { startAiStream, StreamController } from '@/lib/ai-stream';
 import { resolveEffectiveModel } from '@/lib/model-router';
@@ -43,6 +44,7 @@ const INITIAL_CHATS: ChatSession[] = [
     id: 'c1',
     title: 'Landing Page redesign',
     isPinned: true,
+    isArchived: false,
     pinnedOrder: 0,
     createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
@@ -51,6 +53,7 @@ const INITIAL_CHATS: ChatSession[] = [
     id: 'c2',
     title: 'API architecture discussion',
     isPinned: false,
+    isArchived: false,
     createdAt: new Date(Date.now() - 1000 * 60 * 300).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 300).toISOString(),
   },
@@ -58,6 +61,7 @@ const INITIAL_CHATS: ChatSession[] = [
     id: 'c3',
     title: 'বাংলা প্রম্পট অপটিমাইজেশন',
     isPinned: false,
+    isArchived: false,
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
   },
@@ -65,16 +69,12 @@ const INITIAL_CHATS: ChatSession[] = [
     id: 'c4',
     title: 'Authentication flow setup',
     isPinned: false,
+    isArchived: false,
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4).toISOString(),
   },
 ];
 
-/**
- * Root Application Canvas:
- * Orchestrates Global Keyboard Shortcuts Dispatcher, Privacy Controls,
- * Memory Context Engine, Multi-Model resolution, and ChatComposer.
- */
 export default function HomePage() {
   const {
     models,
@@ -86,11 +86,13 @@ export default function HomePage() {
     injectMemoryInContext,
     memories,
     addMemory,
+    setActiveModelId,
     dispatchAppNotification,
   } = useSettings();
 
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [activeView, setActiveView] = useState<'chat' | 'project'>('chat');
+  const [isIncognito, setIsIncognito] = useState(false);
   const [activeChatId, setActiveChatId] = useState<string | undefined>(undefined);
   const [chats, setChats] = useState<ChatSession[]>(INITIAL_CHATS);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -102,6 +104,18 @@ export default function HomePage() {
 
   const navTriggerRef = useRef<HTMLButtonElement>(null);
   const activeStreamControllerRef = useRef<StreamController | null>(null);
+
+  // Global Ctrl/Cmd + K shortcut listener to open search
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsNavOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   // Clean stream and audio on unmount
   useEffect(() => {
@@ -129,6 +143,24 @@ export default function HomePage() {
     setSessionError(null);
   }, []);
 
+  // Incognito Toggle Handler
+  const handleToggleIncognito = useCallback(() => {
+    setIsIncognito((prev) => {
+      const next = !prev;
+      handleNewChat();
+      if (next) {
+        dispatchAppNotification(
+          'systemUpdates',
+          'Incognito Mode Active',
+          'Conversations in this mode will not be saved to your history.',
+          'info',
+          'Privacy Engine'
+        );
+      }
+      return next;
+    });
+  }, [handleNewChat, dispatchAppNotification]);
+
   // Cancel / Stop Generation Handler
   const handleCancelGeneration = useCallback(() => {
     activeStreamControllerRef.current?.cancel();
@@ -139,7 +171,7 @@ export default function HomePage() {
     );
   }, []);
 
-  // Global Keyboard Shortcuts Dispatcher (Ctrl+K, Ctrl+B, Ctrl+, Alt+N, /, Escape)
+  // Global Keyboard Shortcuts Dispatcher
   useGlobalShortcuts({
     onSearch: () => setIsNavOpen(true),
     onToggleNav: () => setIsNavOpen((prev) => !prev),
@@ -155,7 +187,7 @@ export default function HomePage() {
   // Send message submission handler
   const handleSendMessage = (message: string, attachments: ComposerAttachment[], modelId: string) => {
     if (isProcessing) return;
-    const currentChatId = activeChatId || `chat-${Date.now()}`;
+    const currentChatId = isIncognito ? `incognito-${Date.now()}` : activeChatId || `chat-${Date.now()}`;
 
     // 1. Resolve active model profile
     const effectiveModel = resolveEffectiveModel({
@@ -164,7 +196,7 @@ export default function HomePage() {
       models,
     });
 
-    // 2. Resolve scoped memories (Global + Project + Conversation)
+    // 2. Resolve scoped memories
     let memoryContextEnvelope = '';
     if (injectMemoryInContext) {
       const selectedMemories = resolveConversationMemoryContext({
@@ -181,15 +213,15 @@ export default function HomePage() {
     // 3. Compile personalization directive envelope
     const personalizationEnvelope = compilePersonalizationEnvelope(personalization);
 
-    // 4. Compile full model payload with active generation parameters & context envelopes
+    // 4. Compile full model payload with active generation parameters
     compileModelPayload({
       prompt: `${message}${personalizationEnvelope}${memoryContextEnvelope}`,
       config: generationConfig,
       model: effectiveModel,
     });
 
-    // 5. Create or update session in recent chats (respecting saveChatHistory privacy setting)
-    if (privacy.saveChatHistory) {
+    // 5. Create or update session in recent chats
+    if (!isIncognito && privacy.saveChatHistory) {
       if (!activeChatId) {
         const initialTitle =
           message.trim() || (attachments.length > 0 ? `Attachment: ${attachments[0].name}` : 'New Conversation');
@@ -197,6 +229,7 @@ export default function HomePage() {
           id: currentChatId,
           title: initialTitle.slice(0, 30),
           isPinned: false,
+          isArchived: false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           projectId: effectiveModel.name,
@@ -224,18 +257,11 @@ export default function HomePage() {
 
     setMessages((prev) => [...prev, newUserMsg]);
 
-    // 7. Check for automatic candidate memory suggestions if enabled
-    if (autoSuggestMemories && useMemory) {
+    // 7. Check for candidate memory suggestions
+    if (!isIncognito && autoSuggestMemories && useMemory) {
       const candidate = detectCandidateMemories(message, currentChatId);
       if (candidate) {
         setCandidateSuggestions((prev) => [...prev, candidate]);
-        dispatchAppNotification(
-          'memoryEvents',
-          'Memory Rule Candidate',
-          `Detected preference: "${candidate.content.slice(0, 40)}..."`,
-          'info',
-          'Memory Engine'
-        );
       }
     }
 
@@ -274,13 +300,6 @@ export default function HomePage() {
           );
           setIsProcessing(false);
           activeStreamControllerRef.current = null;
-          dispatchAppNotification(
-            'aiResponses',
-            'Response Complete',
-            `AI generated response using ${effectiveModel.name}`,
-            'success',
-            'AI Stream Engine'
-          );
         },
         onError: () => {
           setMessages((prev) =>
@@ -292,30 +311,8 @@ export default function HomePage() {
           );
           setIsProcessing(false);
           activeStreamControllerRef.current = null;
-          dispatchAppNotification(
-            'errorsAndWarnings',
-            'Generation Failed',
-            'AI Stream request failed. You can retry the message.',
-            'error',
-            'AI Stream Engine'
-          );
         },
       }
-    );
-  };
-
-  // Clear Chat History Privacy Action
-  const handleClearAllChats = () => {
-    setChats([]);
-    setMessages([]);
-    setActiveChatId(undefined);
-    setCandidateSuggestions([]);
-    dispatchAppNotification(
-      'systemUpdates',
-      'Chat History Cleared',
-      'All local conversations have been deleted from your browser.',
-      'info',
-      'Privacy Engine'
     );
   };
 
@@ -339,16 +336,8 @@ export default function HomePage() {
     });
 
     setCandidateSuggestions((prev) => prev.filter((s) => s.id !== suggestionId));
-    dispatchAppNotification(
-      'memoryEvents',
-      'Memory Saved',
-      `Saved rule under ${scope} scope.`,
-      'success',
-      'Memory System'
-    );
   };
 
-  // Candidate Memory Suggestion Dismiss Handler
   const handleDismissMemorySuggestion = (suggestionId: string) => {
     setCandidateSuggestions((prev) => prev.filter((s) => s.id !== suggestionId));
   };
@@ -362,12 +351,13 @@ export default function HomePage() {
     setCurrentlySpeakingId(null);
     setActiveChatId(id);
     setActiveView('chat');
+    setIsIncognito(false);
     setIsLoadingSession(true);
     setSessionError(null);
     setIsProcessing(false);
     setCandidateSuggestions([]);
 
-    // Simulate session restoration
+    // Restore conversation
     setTimeout(() => {
       setIsLoadingSession(false);
       setMessages([
@@ -391,7 +381,7 @@ export default function HomePage() {
     }, 150);
   };
 
-  // Feedback Handler (Love / Broken Love)
+  // Feedback Handler
   const handleFeedback = (messageId: string, feedback: MessageFeedback) => {
     setMessages((prev) =>
       prev.map((msg) => (msg.id === messageId ? { ...msg, feedback } : msg))
@@ -442,17 +432,26 @@ export default function HomePage() {
     );
   };
 
-  // Archive
+  // Archive Chat Handler
   const handleArchive = (chatId: string) => {
     setChats((prev) =>
-      prev.map((chat) => (chat.id === chatId ? { ...chat, isArchived: true } : chat))
+      prev.map((chat) =>
+        chat.id === chatId ? { ...chat, isArchived: true, isPinned: false } : chat
+      )
     );
     if (activeChatId === chatId) {
       handleNewChat();
     }
   };
 
-  // Delete
+  // Unarchive Chat Handler
+  const handleUnarchive = (chatId: string) => {
+    setChats((prev) =>
+      prev.map((chat) => (chat.id === chatId ? { ...chat, isArchived: false } : chat))
+    );
+  };
+
+  // Delete Chat Handler
   const handleDelete = (chatId: string) => {
     setChats((prev) => prev.filter((chat) => chat.id !== chatId));
     if (activeChatId === chatId) {
@@ -468,7 +467,15 @@ export default function HomePage() {
     });
   };
 
-  // Close Navigation
+  // Global Search Navigation Dispatchers
+  const handleSelectSettingsSection = (section: SettingsSection) => {
+    // Navigated via nav-panel
+  };
+
+  const handleSelectModel = (modelId: string) => {
+    setActiveModelId(modelId);
+  };
+
   const handleCloseNav = () => {
     setIsNavOpen(false);
     navTriggerRef.current?.focus();
@@ -478,37 +485,45 @@ export default function HomePage() {
 
   return (
     <ApplicationShell>
-      {/* Top Region: Top-Left Two-Dot Trigger & Top-Right Brand Anchor */}
+      {/* Top Region: Two-Dot Trigger, Incognito Badge, and XviFloo Logo */}
       <ApplicationShell.Top>
         <BrandHeader
           isNavOpen={isNavOpen}
           onToggleNav={(open) => setIsNavOpen(open)}
+          isIncognito={isIncognito}
+          onExitIncognito={() => setIsIncognito(false)}
           triggerRef={navTriggerRef}
         />
       </ApplicationShell.Top>
 
-      {/* Floating Navigation Window with Settings Shell */}
+      {/* Floating Navigation Window with Global Search */}
       <NavPanel
         isOpen={isNavOpen}
         onClose={handleCloseNav}
         activeItem={activeView}
+        isIncognito={isIncognito}
         chats={chats}
-        user={CURRENT_USER}
+        messages={messages}
+        user={isIncognito ? undefined : CURRENT_USER}
         activeChatId={activeChatId}
         onSelectChat={handleSelectChat}
+        onSelectSettingsSection={handleSelectSettingsSection}
+        onSelectModel={handleSelectModel}
         onPinToggle={handlePinToggle}
         onRename={handleRename}
         onArchive={handleArchive}
+        onUnarchive={handleUnarchive}
         onDelete={handleDelete}
         onReorderPinned={handleReorderPinned}
         onNavigate={(item) => setActiveView(item)}
         onNewChat={handleNewChat}
+        onToggleIncognito={handleToggleIncognito}
       />
 
-      {/* Main Region: Conditional Rendering between Welcome State and Live Conversation Feed */}
+      {/* Main Region: Welcome State or Live Conversation Feed */}
       <ApplicationShell.Main>
         {!hasMessages ? (
-          <WelcomeState userName={CURRENT_USER.name} />
+          <WelcomeState userName={isIncognito ? 'Guest' : CURRENT_USER.name} />
         ) : (
           <ConversationView
             messages={messages}
@@ -518,7 +533,7 @@ export default function HomePage() {
             currentlySpeakingId={currentlySpeakingId}
             onAcceptMemorySuggestion={handleAcceptMemorySuggestion}
             onDismissMemorySuggestion={handleDismissMemorySuggestion}
-            onStartSpeaking={(id: string) => setCurrentlySpeakingId(id)}
+            onStartSpeaking={(id) => setCurrentlySpeakingId(id)}
             onStopSpeaking={() => setCurrentlySpeakingId(null)}
             onRetrySession={() => setSessionError(null)}
             onEditMessage={handleEditMessage}

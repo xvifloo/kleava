@@ -17,19 +17,19 @@ function getFileIcon(type: string, name: string) {
     const ext = name.split('.').pop()?.toLowerCase();
 
     if (type.includes('json') || ['ts', 'js', 'tsx', 'jsx', 'py', 'html', 'css'].includes(ext || '')) {
-        return <FileCode className="w-3.5 h-3.5 text-kleava-accent flex-shrink-0" />;
+        return <FileCode className="w-3.5 h-3.5 text-kleava-accent shrink-0" />;
     }
     if (type.includes('csv') || type.includes('spreadsheet') || ['xls', 'xlsx'].includes(ext || '')) {
-        return <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />;
+        return <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />;
     }
     if (type.includes('pdf') || type.includes('text') || ['doc', 'docx', 'md', 'txt'].includes(ext || '')) {
-        return <FileText className="w-3.5 h-3.5 text-kleava-text-secondary flex-shrink-0" />;
+        return <FileText className="w-3.5 h-3.5 text-kleava-text-secondary shrink-0" />;
     }
-    return <File className="w-3.5 h-3.5 text-kleava-text-secondary flex-shrink-0" />;
+    return <File className="w-3.5 h-3.5 text-kleava-text-secondary shrink-0" />;
 }
 
 /**
- * ComposerAttachmentTray: Compact scrollable horizontal strip of attachment preview chips.
+ * ComposerAttachmentTray: Compact scrollable attachment strip.
  */
 export function ComposerAttachmentTray({
     attachments,
@@ -42,17 +42,17 @@ export function ComposerAttachmentTray({
         <div
             aria-label="Attached files"
             className={cn(
-                'w-full px-3 pt-1 flex items-center space-x-2 overflow-x-auto scrollbar-none flex-shrink-0 select-none',
+                'w-full px-3 py-1 flex items-center space-x-2 overflow-x-auto scrollbar-none shrink-0 select-none',
                 className
             )}
         >
             {attachments.map((att) => (
                 <div
                     key={att.id}
-                    className="relative group flex items-center space-x-1.5 pl-1.5 pr-2 py-1 rounded-[5px] bg-kleava-surface-soft/90 border border-kleava-border-subtle/80 text-[11.5px] text-kleava-text-primary flex-shrink-0 transition-shadow hover:shadow-xs"
+                    className="relative group flex items-center space-x-1.5 pl-1.5 pr-2 py-1 rounded-[6px] bg-kleava-surface-soft border border-kleava-border-subtle/80 text-[11.5px] text-kleava-text-primary shrink-0 transition-shadow hover:shadow-xs"
                 >
                     {att.previewUrl ? (
-                        <div className="w-5 h-5 relative rounded overflow-hidden flex-shrink-0 bg-kleava-surface border border-kleava-border-subtle">
+                        <div className="w-5 h-5 relative rounded overflow-hidden shrink-0 bg-kleava-surface border border-kleava-border-subtle">
                             <Image
                                 src={att.previewUrl}
                                 alt={att.name}

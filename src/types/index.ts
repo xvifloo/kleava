@@ -133,6 +133,8 @@ export type SettingsSection =
   | 'shortcuts'
   | 'about';
 
+export type NavPanelViewMode = 'nav' | 'settings' | 'archive';
+
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type FontSizeMode = 'small' | 'medium' | 'large';
 export type LanguageCode = 'en' | 'bn';
@@ -194,6 +196,26 @@ export interface KeyboardShortcutItem {
   enabled: boolean;
   scope: ShortcutScope;
   isCustom?: boolean;
+}
+
+export type GlobalSearchCategory =
+  | 'Chats'
+  | 'Messages'
+  | 'Settings'
+  | 'Memories'
+  | 'AI Models'
+  | 'Projects';
+
+export interface GlobalSearchResult {
+  id: string;
+  category: GlobalSearchCategory;
+  title: string;
+  subtitle?: string;
+  badge?: string;
+  targetChatId?: string;
+  targetSettingsSection?: SettingsSection;
+  targetModelId?: string;
+  isArchived?: boolean;
 }
 
 export type NotificationCategory =

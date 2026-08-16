@@ -13,15 +13,16 @@ export interface ShellRegionProps extends React.HTMLAttributes<HTMLElement> {
 }
 
 /**
- * TopRegion: Reserved composition area for header branding and navigation triggers.
+ * TopRegion: Firmly anchored sticky top navigation area.
  */
 export function TopRegion({ children, className, ...props }: ShellRegionProps) {
   return (
     <header
       role="banner"
       className={cn(
-        'w-full flex-shrink-0 z-30 pt-[env(safe-area-inset-top,0px)]',
-        'h-14 md:h-16 flex items-center justify-between',
+        'w-full shrink-0 z-40 sticky top-0',
+        'pt-[env(safe-area-inset-top,0px)]',
+        'h-12 sm:h-14 flex items-center justify-between',
         className
       )}
       {...props}
@@ -32,7 +33,7 @@ export function TopRegion({ children, className, ...props }: ShellRegionProps) {
 }
 
 /**
- * MainRegion: Flexible, central content area for conversation flow and canvas content.
+ * MainRegion: Fluid message canvas with independent scroll isolation.
  */
 export function MainRegion({ children, className, ...props }: ShellRegionProps) {
   return (
@@ -53,7 +54,8 @@ export function MainRegion({ children, className, ...props }: ShellRegionProps) 
 }
 
 /**
- * BottomRegion: Reserved interaction area for composer input and action controls.
+ * BottomRegion: Interaction area holding the adaptive composer.
+ * Raised with comfortable bottom padding for an elegant floating presence.
  */
 export function BottomRegion({ children, className, ...props }: ShellRegionProps) {
   return (
@@ -61,8 +63,9 @@ export function BottomRegion({ children, className, ...props }: ShellRegionProps
       role="region"
       aria-label="Interactive composer region"
       className={cn(
-        'w-full flex-shrink-0 z-20 pb-[env(safe-area-inset-bottom,0px)]',
-        'pt-2 pb-4 md:pb-6 flex flex-col items-center justify-end',
+        'w-full shrink-0 z-30',
+        'pb-4 sm:pb-6 md:pb-8 pt-2', // Lifted comfortably from bottom
+        'flex flex-col items-center justify-end',
         className
       )}
       {...props}
@@ -73,8 +76,7 @@ export function BottomRegion({ children, className, ...props }: ShellRegionProps
 }
 
 /**
- * ApplicationShell: Root responsive viewport container.
- * Enforces dynamic viewport bounds (100dvh), safe gutters, and fluid width limits.
+ * ApplicationShell: Root 100dvh responsive shell.
  */
 export function ApplicationShell({
   children,
@@ -96,7 +98,7 @@ export function ApplicationShell({
       <div
         className={cn(
           'w-full h-full flex flex-col relative',
-          'px-5 sm:px-6 md:px-8',
+          'px-3.5 sm:px-5 md:px-8',
           maxWidthClassName
         )}
       >

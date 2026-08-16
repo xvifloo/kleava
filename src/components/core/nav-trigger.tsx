@@ -11,9 +11,10 @@ export interface NavTriggerProps
 }
 
 /**
- * NavTrigger: Kleava 38x38px Two-Dot Morphing Navigation Control.
- * Transforms smoothly between Horizontal (● ●) and Vertical (:) orientations
- * using zero-reflow GPU transforms while keeping the 38x38 outer boundary visually stable.
+ * NavTrigger: Refined 38x38px Two-Dot Morphing Control.
+ * - No hard borders, rings, or outlines
+ * - Subtle glass blur effect across Light & Dark themes
+ * - Two centered 6x6 accent dots with hardware-accelerated transform
  */
 export const NavTrigger = forwardRef<HTMLButtonElement, NavTriggerProps>(
   ({ isOpen: controlledIsOpen, onToggle, className, ...props }, ref) => {
@@ -39,18 +40,19 @@ export const NavTrigger = forwardRef<HTMLButtonElement, NavTriggerProps>(
         aria-expanded={open}
         onClick={handleClick}
         className={cn(
-          // Outer 38x38 rounded container with 25px radius
-          'relative w-[38px] h-[38px] rounded-kleava-control flex-shrink-0',
-          'bg-kleava-surface text-kleava-accent',
-          'flex items-center justify-center select-none',
-          'shadow-kleava-subtle border border-kleava-border-subtle/60',
-          'transition-all duration-200 ease-out',
-          // Subtle interactive states
-          'hover:bg-kleava-surface-light hover:border-kleava-accent/30',
-          'active:scale-[0.96] active:bg-kleava-surface-soft',
+          // 38x38 rounded capsule frame with 25px radius (no hard border/outline)
+          'relative w-[38px] h-[38px] min-w-[38px] min-h-[38px] rounded-kleava-control shrink-0',
+          'flex items-center justify-center select-none border-0 outline-none ring-0',
+          // Subtle Glass Blur treatment for Light & Dark mode
+          'bg-kleava-surface/80 dark:bg-[#151F1C]/75 backdrop-blur-md',
+          'shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.25)]',
+          'text-kleava-accent transition-all duration-200 ease-out',
+          // Hover & active micro-states
+          'hover:bg-kleava-surface/95 dark:hover:bg-[#1E2A27]/90 hover:scale-105',
+          'active:scale-95',
           // Accessible Focus Ring
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kleava-accent focus-visible:ring-offset-2 focus-visible:ring-offset-kleava-bg',
-          open && 'bg-kleava-surface-light/90 border-kleava-accent/40 shadow-sm',
+          open && 'bg-kleava-surface-light/90 dark:bg-[#1E2A27]/95 shadow-sm',
           className
         )}
         {...props}
