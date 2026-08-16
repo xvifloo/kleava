@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Image from 'next/image';
+import { KleavaLogo } from '@/components/core/kleava-logo';
 import { useSettings } from '@/state/settings-context';
 import { resolveGreeting } from '@/lib/greeting-service';
 import { cn } from '@/lib/utils';
@@ -13,13 +13,12 @@ export interface WelcomeStateProps {
 
 /**
  * WelcomeState: Initial ambient screen for Kleava AI.
- * Vertically balanced composition featuring the brand anchor,
+ * Vertically balanced composition featuring the Kleava brand anchor,
  * language-aware dynamic greeting, and contextual prompt without layout shifts.
  */
 export function WelcomeState({ userName, className }: WelcomeStateProps) {
   const { settings } = useSettings();
   const [mounted, setMounted] = useState(false);
-  const [logoError, setLogoError] = useState(false);
 
   // Initialize with deterministic base state to eliminate SSR hydration mismatches
   const [resolved, setResolved] = useState(() =>
@@ -53,26 +52,11 @@ export function WelcomeState({ userName, className }: WelcomeStateProps) {
       )}
     >
       <div className="w-full max-w-[440px] flex flex-col items-center justify-center space-y-5 md:space-y-6 my-auto">
-        {/* 1. Brand Anchor: kleavaCm.svg with restrained sequence animation */}
+        {/* 1. Brand Anchor: Kleava Logo with subtle hover scale */}
         <div className="relative flex items-center justify-center">
-          {!logoError ? (
-            <div className="relative w-14 h-14 sm:w-16 sm:h-16 md:w-[72px] md:h-[72px] transition-transform duration-300 hover:scale-105">
-              <Image
-                src="/assets/kleavaCm.svg"
-                alt="Kleava AI Logo"
-                fill
-                sizes="(max-width: 640px) 56px, 72px"
-                priority
-                onError={() => setLogoError(true)}
-                className="object-contain drop-shadow-sm pointer-events-none"
-              />
-            </div>
-          ) : (
-            /* Graceful Fallback Anchor if physical SVG is missing */
-            <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-[72px] md:h-[72px] rounded-kleava-control bg-kleava-surface-light border border-kleava-accent/30 flex items-center justify-center shadow-kleava-subtle">
-              <span className="w-4 h-4 rounded-full bg-kleava-accent" />
-            </div>
-          )}
+          <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-[72px] md:h-[72px] flex items-center justify-center transition-transform duration-300 hover:scale-105">
+            <KleavaLogo size={64} className="w-14 h-14 sm:w-16 sm:h-16 md:w-[64px] md:h-[64px] text-kleava-accent drop-shadow-sm pointer-events-none" />
+          </div>
         </div>
 
         {/* 2. Dynamic Contextual Greeting & Supporting Line */}

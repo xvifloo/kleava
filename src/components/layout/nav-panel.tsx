@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
 import { Plus, MessageSquare, FolderKanban } from 'lucide-react';
 import { ChatSession, UserProfile as UserProfileType } from '@/types';
+import { KleavaLogo } from '@/components/core/kleava-logo';
 import { ChatList } from '@/components/layout/chat-list';
 import { ChatSearch } from '@/components/layout/chat-search';
 import { UserProfile } from '@/components/layout/user-profile';
@@ -30,8 +30,8 @@ export interface NavPanelProps {
 
 /**
  * NavPanel: Compact floating navigation window expanding from top-left origin.
- * Houses branding, primary navigation items, real-time chat search, chronological recent chats,
- * sticky bottom-anchored user profile footer, and settings view shell.
+ * Houses Kleava branding, primary navigation, real-time chat search, chronological recent chats,
+ * user profile footer, and settings view shell.
  */
 export function NavPanel({
   isOpen,
@@ -114,23 +114,9 @@ export function NavPanel({
           <div className="w-full h-full flex flex-col">
             {/* 1. Top Header: Kleava Branding Row */}
             <div className="flex items-center justify-between pb-2.5 border-b border-kleava-border-subtle/50 mb-2 flex-shrink-0">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-6 h-6 relative flex items-center justify-center flex-shrink-0">
-                  <Image
-                    src="/assets/kleavaCm.svg"
-                    alt="Kleava"
-                    width={24}
-                    height={24}
-                    className="object-contain"
-                    onError={(e) => {
-                      const target = e.currentTarget;
-                      target.style.display = 'none';
-                      if (target.parentElement) {
-                        target.parentElement.innerHTML =
-                          '<span class="w-3.5 h-3.5 rounded-full bg-kleava-accent inline-block"></span>';
-                      }
-                    }}
-                  />
+              <div className="flex items-center space-x-2">
+                <div className="w-6 h-6 flex items-center justify-center shrink-0 text-kleava-accent">
+                  <KleavaLogo size={22} />
                 </div>
                 <span className="typography-label font-semibold text-sm tracking-tight text-kleava-text-primary">
                   Kleava
@@ -162,7 +148,7 @@ export function NavPanel({
                   'focus-ring-kleava'
                 )}
               >
-                <div className="w-4 h-4 rounded-full bg-kleava-accent/15 flex items-center justify-center text-kleava-accent flex-shrink-0">
+                <div className="w-4 h-4 rounded-full bg-kleava-accent/15 flex items-center justify-center text-kleava-accent shrink-0">
                   <Plus className="w-3 h-3 stroke-[2.5]" />
                 </div>
                 <span className="font-medium text-kleava-accent text-xs">New Chat</span>
@@ -185,7 +171,7 @@ export function NavPanel({
                   'focus-ring-kleava'
                 )}
               >
-                <MessageSquare className="w-3.5 h-3.5 text-kleava-text-secondary flex-shrink-0" />
+                <MessageSquare className="w-3.5 h-3.5 text-kleava-text-secondary shrink-0" />
                 <span>Chat</span>
               </button>
 
@@ -206,13 +192,13 @@ export function NavPanel({
                   'focus-ring-kleava'
                 )}
               >
-                <FolderKanban className="w-3.5 h-3.5 text-kleava-text-secondary flex-shrink-0" />
+                <FolderKanban className="w-3.5 h-3.5 text-kleava-text-secondary shrink-0" />
                 <span>Project</span>
               </button>
             </div>
 
             {/* 3. Search Chats Bar */}
-            <div className="mb-2 flex-shrink-0">
+            <div className="mb-2 shrink-0">
               <ChatSearch
                 ref={searchInputRef}
                 value={searchQuery}
@@ -222,7 +208,7 @@ export function NavPanel({
             </div>
 
             {/* Separator */}
-            <div className="border-t border-kleava-border-subtle/50 mb-2 flex-shrink-0" />
+            <div className="border-t border-kleava-border-subtle/50 mb-2 shrink-0" />
 
             {/* 4. Flexible Scrollable Recent Chats Container */}
             <div className="flex-1 min-h-[120px] overflow-y-auto pr-0.5 scrollbar-none">
@@ -245,7 +231,7 @@ export function NavPanel({
             </div>
 
             {/* 5. Bottom Anchored User Profile & Settings Trigger */}
-            <div className="mt-2 pt-2 border-t border-kleava-border-subtle/50 flex-shrink-0">
+            <div className="mt-2 pt-2 border-t border-kleava-border-subtle/50 shrink-0">
               <UserProfile
                 user={user}
                 onOpenSettings={() => setCurrentView('settings')}

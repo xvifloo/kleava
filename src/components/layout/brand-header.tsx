@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 import { NavTrigger } from '@/components/core/nav-trigger';
+import { XviFlooLogo } from '@/components/core/xvifloo-logo';
 import { cn } from '@/lib/utils';
 
 export interface BrandHeaderProps {
@@ -15,7 +15,7 @@ export interface BrandHeaderProps {
 /**
  * BrandHeader: Top navigation composition for Kleava AI.
  * Top-Left: NavTrigger (38x38 Two-Dot Morph Control)
- * Top-Right: xviFlooPm.svg brand anchor
+ * Top-Right: Official XviFloo Vector Logo
  */
 export function BrandHeader({
     isNavOpen,
@@ -26,7 +26,7 @@ export function BrandHeader({
     return (
         <div
             className={cn(
-                'w-full flex items-center justify-between select-none',
+                'w-full flex items-center justify-between select-none font-ui',
                 className
             )}
         >
@@ -37,27 +37,17 @@ export function BrandHeader({
                 onToggle={onToggleNav}
             />
 
-            {/* Top-Right: XviFlooPM Brand Logo Asset */}
-            <div className="flex items-center justify-center flex-shrink-0">
-                <div className="w-[34px] h-[34px] relative flex items-center justify-center">
-                    <Image
-                        src="/assets/xviFlooPm.svg"
-                        alt="XviFloo"
-                        width={30}
-                        height={30}
-                        priority
-                        className="object-contain drop-shadow-sm opacity-90 hover:opacity-100 transition-opacity"
-                        onError={(e) => {
-                            // Graceful fallback badge if SVG asset is unmounted
-                            const target = e.currentTarget;
-                            target.style.display = 'none';
-                            if (target.parentElement) {
-                                target.parentElement.innerHTML =
-                                    '<div class="w-7 h-7 rounded-kleava-sm bg-kleava-surface-soft border border-kleava-border-subtle flex items-center justify-center text-[10px] font-semibold text-kleava-text-secondary">XF</div>';
-                            }
-                        }}
-                    />
-                </div>
+            {/* Top-Right: Official XviFloo Logo */}
+            <div className="flex items-center justify-center shrink-0">
+                <a
+                    href="https://xvifloo.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="XviFloo Home"
+                    className="w-[34px] h-[34px] flex items-center justify-center rounded-kleava-sm hover:opacity-85 transition-opacity focus-ring-kleava"
+                >
+                    <XviFlooLogo size={28} className="drop-shadow-xs" />
+                </a>
             </div>
         </div>
     );
