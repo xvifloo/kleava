@@ -34,7 +34,7 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
     theme: 'light',
     accentColor: '#17BC9B', // Canonical Kleava Mint
     language: 'en',
-    fontSize: 'medium',
+    fontSize: 'medium', // Default is medium (15px / 165%)
     autoSave: true,
     compactMode: false,
     reduceMotion: false,
@@ -287,8 +287,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         if (typeof window === 'undefined') return;
 
         const root = document.documentElement;
+
+        // 1. Accent color injection
         root.style.setProperty('--accent-primary', settings.accentColor);
 
+        // 2. Font scaling injection
         if (settings.fontSize === 'small') {
             root.style.setProperty('--font-size-multiplier', '0.90');
         } else if (settings.fontSize === 'large') {
@@ -297,18 +300,21 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             root.style.setProperty('--font-size-multiplier', '1.0');
         }
 
+        // 3. Compact mode density attribute
         if (settings.compactMode) {
             root.setAttribute('data-density', 'compact');
         } else {
             root.removeAttribute('data-density');
         }
 
+        // 4. Reduce motion override
         if (settings.reduceMotion) {
             root.setAttribute('data-reduce-motion', 'true');
         } else {
             root.removeAttribute('data-reduce-motion');
         }
 
+        // 5. Theme management
         const applyTheme = () => {
             let isDark = false;
             if (settings.theme === 'system') {

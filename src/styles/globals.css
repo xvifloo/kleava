@@ -4,10 +4,12 @@
 
 :root {
   /* ==================================================
-     1. CANONICAL COLOR TOKENS
+     1. CANONICAL LIGHT THEME COLOR TOKENS
      ================================================== */
   --bg-primary: #F1FFF9;
   --accent-primary: #17BC9B;
+  --accent-hover: #14A587;
+  --accent-soft: #E2F5F0;
   --text-primary: #2D2D2D;
   --text-secondary: #6B8079;
   --surface-base: #FFFFFF;
@@ -16,18 +18,27 @@
   --destructive: #E04848;
   --border-subtle: rgba(107, 128, 121, 0.15);
 
-  /* ==================================================
-     2. RADIUS TOKENS
-     ================================================== */
+  /* Code Block Tokens (Light Mode) */
+  --code-bg: #0D0D0D;
+  --code-header-bg: #171717;
+  --code-border: #262626;
+  --code-text: #E5E7EB;
+  --code-linenum: #4B5563;
+
+  /* Radius Tokens */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
   --radius-control: 25px;
   --radius-full: 9999px;
 
-  /* ==================================================
-     3. TYPOGRAPHY FALLBACK VARIABLES
-     ================================================== */
+  /* Typography Scale Variables */
+  --font-size-multiplier: 1;
+  --ai-base-font-size: calc(15px * var(--font-size-multiplier, 1));
+  --ai-line-height: 1.65;
+  --ai-letter-spacing: 0.3px;
+
+  /* Font Fallback Variables */
   --font-geist: Geist, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-geist-sans: Geist, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-hind-siliguri: "Hind Siliguri", "Noto Sans Bengali", "Kalpurush", sans-serif;
@@ -35,7 +46,39 @@
   --font-jetbrains-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, monospace;
 }
 
-/* Viewport Baseline & Scroll Isolation */
+/* ==================================================
+   2. CANONICAL DARK THEME COLOR TOKENS
+   ================================================== */
+html.dark,
+[data-theme="dark"] {
+  --bg-primary: #0D1412;
+  --accent-soft: rgba(23, 188, 155, 0.15);
+  --text-primary: #F3F7F5;
+  --text-secondary: #8A9E97;
+  --surface-base: #151F1C;
+  --surface-soft: #1E2A27;
+  --surface-light: #253531;
+  --destructive: #FF5C5C;
+  --border-subtle: rgba(138, 158, 151, 0.2);
+
+  /* Code Block Tokens (Dark Mode) */
+  --code-bg: #080D0B;
+  --code-header-bg: #101815;
+  --code-border: #1E2B26;
+  --code-text: #E5E7EB;
+  --code-linenum: #52665F;
+}
+
+/* ==================================================
+   3. COMPACT MODE DENSITY OVERRIDES
+   ================================================== */
+[data-density="compact"] {
+  --spacing-gap-compact: 4px;
+  --spacing-gap-normal: 8px;
+  --spacing-gap-section: 14px;
+}
+
+/* Viewport Baseline & Theme Transitions */
 html {
   height: 100%;
   height: 100dvh;
@@ -46,6 +89,7 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 body {
@@ -59,9 +103,10 @@ body {
   font-family: var(--font-geist-sans), var(--font-geist);
   overflow: hidden;
   touch-action: manipulation;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Semantic Typography Roles */
+/* Typography Semantic Roles */
 .font-ui {
   font-family: var(--font-geist-sans), var(--font-geist), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
@@ -79,12 +124,12 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* AI Response Typography Specification */
+/* AI Response Typography Baseline with Dynamic Font Scaling */
 .ai-response-prose {
   font-family: var(--font-hind-siliguri), var(--font-geist-sans), sans-serif;
-  font-size: 15px;
-  line-height: 1.65;
-  letter-spacing: 0.3px;
+  font-size: var(--ai-base-font-size, 15px);
+  line-height: var(--ai-line-height, 1.65);
+  letter-spacing: var(--ai-letter-spacing, 0.3px);
   color: var(--text-primary);
   word-break: break-word;
   overflow-wrap: break-word;
@@ -115,7 +160,7 @@ body {
   display: none;
 }
 
-/* Counter-Clockwise Rotation for Processing State */
+/* Counter-Clockwise Rotation for Send Button Processing State */
 @keyframes spin-reverse {
   from {
     transform: rotate(360deg);
@@ -130,8 +175,20 @@ body {
   animation: spin-reverse 6s linear infinite;
 }
 
-@media (prefers-reduced-motion: reduce) {
+/* Reduce Motion Overrides */
+@media (prefers-reduced-motion: reduce),
+[data-reduce-motion="true"] {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
   .animate-spin-reverse {
-    animation: none;
+    animation: none !important;
   }
 }

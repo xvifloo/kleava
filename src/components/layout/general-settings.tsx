@@ -167,7 +167,7 @@ export function GeneralSettings() {
                     }
                 />
 
-                {/* Font Size Scaling */}
+                {/* Font Size Scaling (Small, Medium, Large) */}
                 <SettingsRow
                     label={t('contentFontSize', lang)}
                     description={t('contentFontSizeDesc', lang)}
