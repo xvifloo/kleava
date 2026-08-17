@@ -11,7 +11,10 @@ export interface ComposerAttachmentButtonProps {
 }
 
 /**
- * ComposerAttachmentButton: 36x36px control in #E2EEE9 matching ModelSelector & SendButton.
+ * ComposerAttachmentButton: 36x36px control with theme-aware soft surface.
+ * - Light theme: #E2EEE9
+ * - Dark theme: #1E2A27 (no harsh white surface)
+ * - Zero hard outline borders or rings
  */
 export function ComposerAttachmentButton({
     onFilesSelected,
@@ -30,7 +33,7 @@ export function ComposerAttachmentButton({
     };
 
     return (
-        <div className="relative inline-flex items-center select-none shrink-0">
+        <div className="relative inline-flex items-center select-none shrink-0 font-ui">
             {/* Hidden Native File Input */}
             <input
                 ref={fileInputRef}
@@ -42,19 +45,19 @@ export function ComposerAttachmentButton({
                 className="hidden"
             />
 
-            {/* 36x36px Control in #E2EEE9 */}
+            {/* 36x36px Control in Theme-Aware Soft Surface (No hard borders) */}
             <button
                 type="button"
                 aria-label="Add file attachment"
                 disabled={disabled}
                 onClick={() => fileInputRef.current?.click()}
                 className={cn(
-                    'w-[36px] h-[36px] min-w-[36px] min-h-[36px] rounded-kleava-control flex items-center justify-center shrink-0',
-                    'bg-[#E2EEE9] text-kleava-text-secondary',
-                    'hover:bg-[#E2F5F0] hover:text-kleava-accent',
-                    'active:scale-95 transition-all duration-150',
-                    'border border-kleava-border-subtle/50 shadow-xs',
-                    'focus-ring-kleava',
+                    'w-[36px] h-[36px] min-w-[36px] min-h-[36px] rounded-kleava-control flex items-center justify-center shrink-0 border-0 outline-none ring-0',
+                    // Theme-aware background
+                    'bg-[#E2EEE9] dark:bg-[#1E2A27] text-kleava-text-secondary dark:text-kleava-text-secondary',
+                    'hover:bg-[#E2F5F0] dark:hover:bg-[#253531] hover:text-kleava-accent',
+                    'active:scale-95 transition-all duration-150 shadow-2xs',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kleava-accent',
                     disabled && 'opacity-50 cursor-not-allowed',
                     className
                 )}

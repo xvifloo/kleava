@@ -5,6 +5,8 @@ import { UploadCloud, Maximize2, Minimize2 } from 'lucide-react';
 import { ComposerAttachment } from '@/types';
 import { DEFAULT_MODEL_ID } from '@/config/models';
 import { useAttachments } from '@/hooks/use-attachments';
+import { useSettings } from '@/state/settings-context';
+import { t } from '@/lib/i18n';
 import { ComposerResizeHandle } from '@/components/composer/composer-resize-handle';
 import { ComposerAttachmentButton } from '@/components/composer/composer-attachment-button';
 import { ComposerAttachmentTray } from '@/components/composer/composer-attachment-tray';
@@ -25,12 +27,8 @@ const DEFAULT_HEIGHT = 116;
 const MIN_HEIGHT = 116;
 
 /**
- * ChatComposer:
- * - Dynamic Auto-grow height when text expands
- * - 15px readable multiline text input
- * - Manual vertical resize up to 80% viewport height
- * - Non-overlapping attachment tray
- * - Unified 36px bottom controls bar
+ * ChatComposer: Unified 36px bottom controls bar (Attachment, ModelSelector, Mic, Send)
+ * with auto-grow multiline input and zero hard borders.
  */
 export function ChatComposer({
   onSend,
@@ -39,6 +37,9 @@ export function ChatComposer({
   disabled = false,
   className,
 }: ChatComposerProps) {
+  const { settings } = useSettings();
+  const lang = settings.language;
+
   const [text, setText] = useState('');
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
   const [isDraggingHandle, setIsDraggingHandle] = useState(false);
@@ -63,25 +64,21 @@ export function ChatComposer({
   const dragStartHeightRef = useRef<number>(DEFAULT_HEIGHT);
   const isManuallyResizedRef = useRef<boolean>(false);
 
-  // Auto-grow calculation when typing or adding attachments
+  // Dynamic Smooth Auto-Grow Height Calculation
   const adjustHeightForContent = useCallback(() => {
     if (isExpandedMode || isManuallyResizedRef.current) return;
 
     const textarea = textareaRef.current;
     if (!textarea) return;
 
-    // Reset textarea height to calculate natural scrollHeight
     textarea.style.height = 'auto';
     const textScrollHeight = textarea.scrollHeight;
-
-    // Tray height if files are attached
     const trayHeight = attachments.length > 0 ? 38 : 0;
-    // Top bar (18px) + Bottom controls dock (50px) + Internal margins (12px)
-    const chromeHeight = 68 + trayHeight;
+    const chromeHeight = 76 + trayHeight;
 
     const calculatedHeight = Math.min(
-      Math.max(textScrollHeight + chromeHeight, MIN_HEIGHT + trayHeight),
-      window.innerHeight * 0.55 // auto-grow up to 55% screen before scrollbar activates
+      Math.max(textScrollHeight + chromeHeight - 16, MIN_HEIGHT + trayHeight),
+      Math.min(window.innerHeight * 0.52, 320)
     );
 
     setHeight(calculatedHeight);
@@ -91,7 +88,7 @@ export function ChatComposer({
     adjustHeightForContent();
   }, [text, attachments.length, adjustHeightForContent]);
 
-  // Manual Vertical Drag-Resize Handlers
+  // Manual Drag-Resize Handlers
   const handleResizeStart = (clientY: number) => {
     setIsDraggingHandle(true);
     isManuallyResizedRef.current = true;
@@ -193,7 +190,6 @@ export function ChatComposer({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={cn(
-        // Borderless card with soft accent shadow
         'relative w-full rounded-kleava-sm select-none font-ui',
         'bg-kleava-surface text-kleava-text-primary',
         'border-0 shadow-[0_4px_24px_-4px_rgba(23,188,155,0.14),0_2px_8px_-2px_rgba(23,188,155,0.08)]',
@@ -208,7 +204,7 @@ export function ChatComposer({
         <div className="absolute inset-0 z-30 rounded-kleava-sm bg-kleava-surface-light/95 flex flex-col items-center justify-center space-y-1 pointer-events-none animate-in fade-in duration-150">
           <UploadCloud className="w-6 h-6 text-kleava-accent animate-bounce" />
           <span className="typography-label text-xs text-kleava-accent font-medium">
-            Drop files to attach
+            {t('dropFiles', lang)}
           </span>
         </div>
       )}
@@ -220,8 +216,8 @@ export function ChatComposer({
         isDragging={isDraggingHandle}
       />
 
-      {/* 3. Top Action Row (Compact Error & Maximize Toggle) */}
-      <div className="pt-2 px-3 flex items-center justify-between shrink-0 select-none">
+      {/* 3. Top Compact Bar */}
+      <div className="pt-1.5 px-3.5 flex items-center justify-between shrink-0 select-none">
         {errorMessage ? (
           <span className="typography-metadata text-[10.5px] text-kleava-destructive font-medium animate-in fade-in">
             {errorMessage}
@@ -234,7 +230,7 @@ export function ChatComposer({
           type="button"
           aria-label={isExpandedMode ? 'Collapse writing mode' : 'Expand writing mode'}
           onClick={toggleExpandedMode}
-          className="p-1 rounded text-kleava-text-secondary/50 hover:text-kleava-text-primary hover:bg-kleava-surface-soft transition-colors focus-ring-kleava"
+          className="p-1 rounded text-kleava-text-secondary/50 hover:text-kleava-text-primary hover:bg-kleava-surface-soft dark:hover:bg-[#1E2A27] transition-colors focus-ring-kleava"
         >
           {isExpandedMode ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
         </button>
@@ -251,28 +247,29 @@ export function ChatComposer({
       )}
 
       {/* 5. Fluid 15px Multi-line Textarea Area */}
-      <div className="flex-1 px-3 py-1 flex flex-col min-h-0 overflow-hidden">
+      <div className="flex-1 px-3.5 pt-0.5 pb-1 flex flex-col min-h-0 overflow-hidden">
         <textarea
           ref={textareaRef}
           value={text}
           disabled={disabled || isProcessing}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask anything in Bangla or English..."
+          placeholder={t('composerPlaceholder', lang)}
           aria-label="Message prompt"
           className={cn(
             'w-full h-full resize-none bg-transparent',
-            'text-[15px] leading-[1.65] font-bangla text-kleava-text-primary', // 15px clear readable size
-            'placeholder:text-kleava-text-secondary/60 placeholder:font-ui placeholder:text-sm',
-            'focus:outline-none scrollbar-none',
+            'text-[15px] sm:text-base leading-relaxed text-kleava-text-primary',
+            lang === 'bn' ? 'font-bangla' : 'font-ui',
+            'placeholder:text-kleava-text-secondary/60 placeholder:text-[15px]',
+            'focus:outline-none scrollbar-none overflow-y-auto',
             isProcessing && 'opacity-70'
           )}
         />
       </div>
 
       {/* 6. Clean Bottom Controls Dock (Unified 36px Height on All Buttons) */}
-      <div className="px-2.5 pb-2.5 pt-1.5 flex items-center justify-between shrink-0 select-none">
-        {/* Left Side: 36px Attachment Button & 36px Model Selector */}
+      <div className="px-3 pb-2.5 pt-1 flex items-center justify-between shrink-0 select-none">
+        {/* Left: 36px Attachment Button & 36px Model Selector */}
         <div className="flex items-center space-x-1.5">
           <ComposerAttachmentButton
             onFilesSelected={addFiles}
@@ -286,7 +283,7 @@ export function ChatComposer({
           />
         </div>
 
-        {/* Right Side: 36px Microphone & 36x36px Circular-Hexagonal Send Button */}
+        {/* Right: 36px Microphone & Symmetrical 36x36px Circular-Hexagonal Send Button */}
         <div className="flex items-center space-x-1.5">
           <MicButton
             onTranscript={handleVoiceTranscript}

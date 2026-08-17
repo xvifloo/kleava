@@ -9,9 +9,9 @@ import {
     Heart,
     HeartCrack,
     RotateCcw,
-    Sparkles,
 } from 'lucide-react';
 import { ChatMessage, MessageFeedback } from '@/types';
+import { KleavaLogo } from '@/components/core/kleava-logo';
 import { formatRelativeTime } from '@/lib/date-utils';
 import { extractCleanSpeechText } from '@/lib/text-utils';
 import { MarkdownContent } from '@/components/messages/markdown-content';
@@ -28,9 +28,9 @@ export interface AssistantMessageProps {
 }
 
 /**
- * AssistantMessage: Document-style conversational AI response container.
- * Features mixed Bangla/English typography, streaming cursor,
- * SpeechSynthesis TTS, mutually exclusive Love/Broken Love, and plain-text copy actions.
+ * AssistantMessage: Editorial AI Response Renderer.
+ * Header: Official Kleava Logo + 'Kleava' text (No version tags, no dividers).
+ * Action Area: Borderless, minimal surface action controls directly beneath response text.
  */
 export function AssistantMessage({
     message,
@@ -50,7 +50,7 @@ export function AssistantMessage({
     const hasContent = Boolean(message.content && message.content.trim().length > 0);
     const isSpeaking = currentlySpeakingId === message.id;
 
-    // Cleanup copy timeout on unmount
+    // Cleanup copy timeout
     useEffect(() => {
         return () => {
             if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
@@ -90,7 +90,7 @@ export function AssistantMessage({
         }
     };
 
-    // Mutually Exclusive Feedback Handlers
+    // Feedback Handlers
     const handleLoveClick = () => {
         const next = message.feedback === 'love' ? null : 'love';
         onFeedback?.(message.id, next);
@@ -109,13 +109,13 @@ export function AssistantMessage({
                 className
             )}
         >
-            {/* 1. Model Identifier Tag */}
-            <div className="flex items-center space-x-1.5 mb-2 select-none">
-                <div className="w-5 h-5 rounded-full bg-kleava-accent/15 flex items-center justify-center text-kleava-accent">
-                    <Sparkles className="w-3 h-3" />
+            {/* 1. Official Header: Kleava Logo + Kleava Text (No version number, no divider) */}
+            <div className="flex items-center space-x-2 mb-2 select-none">
+                <div className="w-5 h-5 flex items-center justify-center shrink-0 text-kleava-accent">
+                    <KleavaLogo size={18} />
                 </div>
-                <span className="typography-metadata text-xs font-semibold text-kleava-text-primary">
-                    {message.model || 'Kleava AI'}
+                <span className="typography-label text-[13px] font-semibold tracking-tight text-kleava-text-primary">
+                    Kleava
                 </span>
             </div>
 
@@ -138,13 +138,13 @@ export function AssistantMessage({
 
             {/* 3. Error Banner & Retry Boundary */}
             {isError && (
-                <div className="mt-3 w-full p-2.5 rounded-kleava-sm bg-red-50/70 border border-red-200 text-xs text-kleava-destructive flex items-center justify-between select-none shadow-sm">
+                <div className="mt-2.5 w-full p-2.5 rounded-kleava-md bg-red-500/10 border border-red-500/30 text-xs text-kleava-destructive flex items-center justify-between select-none shadow-xs">
                     <span>{message.errorMessage || 'Failed to generate response.'}</span>
                     {onRetry && (
                         <button
                             type="button"
                             onClick={() => onRetry(message.id)}
-                            className="flex items-center space-x-1 px-2 py-0.5 rounded bg-white border border-red-200 text-kleava-destructive hover:bg-red-50 text-[11px] font-medium transition-colors"
+                            className="flex items-center space-x-1 px-2 py-0.5 rounded bg-white dark:bg-[#151F1C] border border-red-200 dark:border-red-900/50 text-kleava-destructive hover:bg-red-50 text-[11px] font-medium transition-colors focus-ring-kleava"
                         >
                             <RotateCcw className="w-3 h-3" />
                             <span>Retry</span>
@@ -153,27 +153,27 @@ export function AssistantMessage({
                 </div>
             )}
 
-            {/* 4. Complete Action Toolbar */}
+            {/* 4. Refined Action Area (No horizontal divider line, minimal borderless controls) */}
             {isComplete && hasContent && (
-                <div className="mt-3.5 pt-2 border-t border-kleava-border-subtle/30 w-full flex items-center justify-between text-kleava-text-secondary select-none">
+                <div className="mt-2.5 pt-1 w-full flex items-center justify-between text-kleava-text-secondary text-xs select-none">
                     {/* Relative Timestamp */}
                     <span className="typography-metadata text-[10.5px]">
                         {formatRelativeTime(message.createdAt)}
                     </span>
 
-                    {/* Action Dock (Copy, Sound, Love, Broken Love) */}
+                    {/* Minimal Action Controls Dock */}
                     <div className="flex items-center space-x-1">
                         {/* Copy Button */}
                         <button
                             type="button"
-                            aria-label={isCopied ? 'Copied' : 'Copy response'}
+                            aria-label={isCopied ? 'Copied' : 'Copy response text'}
                             onClick={handleCopy}
-                            className="p-1.5 rounded-kleava-sm hover:bg-kleava-surface-soft text-kleava-text-secondary hover:text-kleava-text-primary transition-colors focus-ring-kleava flex items-center space-x-1 min-w-[28px]"
+                            className="p-1 rounded hover:bg-kleava-surface-soft dark:hover:bg-[#1E2A27] text-kleava-text-secondary hover:text-kleava-text-primary transition-colors focus-ring-kleava flex items-center space-x-1 min-w-[24px]"
                         >
                             {isCopied ? (
                                 <>
                                     <Check className="w-3.5 h-3.5 text-kleava-accent" />
-                                    <span className="typography-metadata text-[10px] text-kleava-accent font-medium">
+                                    <span className="typography-metadata text-[9.5px] text-kleava-accent font-medium">
                                         Copied
                                     </span>
                                 </>
@@ -182,16 +182,16 @@ export function AssistantMessage({
                             )}
                         </button>
 
-                        {/* Sound (TTS) Button */}
+                        {/* Read Aloud (TTS) Button */}
                         <button
                             type="button"
                             aria-label={isSpeaking ? 'Stop speaking' : 'Read aloud'}
                             onClick={handleToggleSpeech}
                             className={cn(
-                                'p-1.5 rounded-kleava-sm transition-colors focus-ring-kleava',
+                                'p-1 rounded transition-colors focus-ring-kleava',
                                 isSpeaking
-                                    ? 'bg-kleava-accent/15 text-kleava-accent ring-1 ring-kleava-accent/30'
-                                    : 'hover:bg-kleava-surface-soft text-kleava-text-secondary hover:text-kleava-text-primary'
+                                    ? 'bg-kleava-accent/15 text-kleava-accent'
+                                    : 'hover:bg-kleava-surface-soft dark:hover:bg-[#1E2A27] text-kleava-text-secondary hover:text-kleava-text-primary'
                             )}
                         >
                             {isSpeaking ? (
@@ -201,6 +201,19 @@ export function AssistantMessage({
                             )}
                         </button>
 
+                        {/* Regenerate / Retry Action */}
+                        {onRetry && (
+                            <button
+                                type="button"
+                                aria-label="Regenerate response"
+                                title="Regenerate response"
+                                onClick={() => onRetry(message.id)}
+                                className="p-1 rounded hover:bg-kleava-surface-soft dark:hover:bg-[#1E2A27] text-kleava-text-secondary hover:text-kleava-text-primary transition-colors focus-ring-kleava"
+                            >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+
                         {/* Love Button (Outline -> Red Filled) */}
                         <button
                             type="button"
@@ -208,15 +221,15 @@ export function AssistantMessage({
                             aria-pressed={message.feedback === 'love'}
                             onClick={handleLoveClick}
                             className={cn(
-                                'p-1.5 rounded-kleava-sm transition-colors focus-ring-kleava',
+                                'p-1 rounded transition-colors focus-ring-kleava',
                                 message.feedback === 'love'
-                                    ? 'text-red-500 bg-red-50/80'
-                                    : 'hover:bg-kleava-surface-soft text-kleava-text-secondary hover:text-red-400'
+                                    ? 'text-red-500 bg-red-500/10'
+                                    : 'hover:bg-kleava-surface-soft dark:hover:bg-[#1E2A27] text-kleava-text-secondary hover:text-red-400'
                             )}
                         >
                             <Heart
                                 className={cn(
-                                    'w-3.5 h-3.5 transition-transform duration-150 active:scale-125',
+                                    'w-3.5 h-3.5 transition-transform active:scale-125',
                                     message.feedback === 'love' && 'fill-current text-red-500'
                                 )}
                             />
@@ -229,15 +242,15 @@ export function AssistantMessage({
                             aria-pressed={message.feedback === 'broken-love'}
                             onClick={handleBrokenLoveClick}
                             className={cn(
-                                'p-1.5 rounded-kleava-sm transition-colors focus-ring-kleava',
+                                'p-1 rounded transition-colors focus-ring-kleava',
                                 message.feedback === 'broken-love'
-                                    ? 'text-red-600 bg-red-50/80 font-medium'
-                                    : 'hover:bg-kleava-surface-soft text-kleava-text-secondary hover:text-kleava-text-primary'
+                                    ? 'text-red-600 bg-red-500/10'
+                                    : 'hover:bg-kleava-surface-soft dark:hover:bg-[#1E2A27] text-kleava-text-secondary hover:text-kleava-text-primary'
                             )}
                         >
                             <HeartCrack
                                 className={cn(
-                                    'w-3.5 h-3.5 transition-transform duration-150 active:scale-125',
+                                    'w-3.5 h-3.5 transition-transform active:scale-125',
                                     message.feedback === 'broken-love' && 'text-red-600'
                                 )}
                             />

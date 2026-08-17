@@ -21,6 +21,7 @@ import {
   SettingsSection,
 } from '@/types';
 import { useSettings } from '@/state/settings-context';
+import { t } from '@/lib/i18n';
 import { KleavaLogo } from '@/components/core/kleava-logo';
 import { ChatList } from '@/components/layout/chat-list';
 import { ChatSearch } from '@/components/layout/chat-search';
@@ -37,7 +38,7 @@ export interface NavPanelProps {
   isIncognito?: boolean;
   chats: ChatSession[];
   messages: ChatMessage[];
-  user?: UserProfileType;
+  user?: UserProfileType | null;
   activeChatId?: string;
   onSelectChat: (chatId: string) => void;
   onSelectSettingsSection?: (section: SettingsSection) => void;
@@ -73,8 +74,7 @@ function renderCategoryIcon(category: string) {
 }
 
 /**
- * NavPanel: Organically expanding floating navigation window with Global Search.
- * Supports Chats, Messages, Settings, Memories, Models, and Projects resolution.
+ * NavPanel: Organically expanding floating navigation window with full Localization support.
  */
 export function NavPanel({
   isOpen,
@@ -99,13 +99,13 @@ export function NavPanel({
   onToggleIncognito,
   className,
 }: NavPanelProps) {
-  const { models, memories } = useSettings();
+  const { models, memories, loginUser, logoutUser, settings } = useSettings();
   const panelRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [currentView, setCurrentView] = useState<NavPanelViewMode>('nav');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Extract archived chats list
+  const lang = settings.language;
   const archivedChats = chats.filter((c) => c.isArchived);
 
   // Global Search resolution
@@ -123,7 +123,7 @@ export function NavPanel({
   const hasGlobalResults = Object.keys(globalSearchResults).length > 0;
   const isSearchActive = searchQuery.trim().length > 0;
 
-  // Hierarchical Escape key listener
+  // Escape key listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -172,7 +172,7 @@ export function NavPanel({
         }}
       />
 
-      {/* Floating Navigation Window (Origin: Top-Left) */}
+      {/* Floating Navigation Window */}
       <nav
         ref={panelRef}
         role="dialog"
@@ -191,17 +191,15 @@ export function NavPanel({
         )}
       >
         {currentView === 'settings' ? (
-          /* Settings View Shell Container */
+          /* Redesigned Clean Settings View */
           <SettingsView
             onBack={() => setCurrentView('nav')}
             chats={chats}
             messages={messages}
-            onClearChatHistory={() => {
-              // Clear chats
-            }}
+            onClearChatHistory={() => { }}
           />
         ) : currentView === 'archive' ? (
-          /* Archive View Container */
+          /* Archive View */
           <ArchiveView
             archivedChats={archivedChats}
             onBack={() => setCurrentView('nav')}
@@ -218,7 +216,7 @@ export function NavPanel({
             {/* 1. Top Header: Branding Aligned on the Top-Right */}
             <div className="flex items-center justify-between pt-0.5 pb-1 select-none shrink-0">
               <span className="text-[11px] font-mono uppercase tracking-wider text-kleava-text-secondary/60">
-                Menu
+                {t('menu', lang)}
               </span>
 
               <div className="flex items-center space-x-2">
@@ -231,12 +229,12 @@ export function NavPanel({
               </div>
             </div>
 
-            {/* 2. Logical Primary Menu Actions */}
+            {/* 2. Logical Primary Menu Actions (Localized) */}
             <div className="flex flex-col space-y-1 shrink-0 pt-0.5">
               {/* New Chat */}
               <button
                 type="button"
-                aria-label="Start new chat"
+                aria-label={t('newChat', lang)}
                 onClick={() => {
                   onNewChat?.();
                   onClose();
@@ -253,13 +251,15 @@ export function NavPanel({
                 <div className="w-4 h-4 rounded-full bg-kleava-accent/15 flex items-center justify-center text-kleava-accent shrink-0">
                   <Plus className="w-3 h-3 stroke-[2.5]" />
                 </div>
-                <span className="font-semibold text-kleava-accent text-xs">New Chat</span>
+                <span className="font-semibold text-kleava-accent text-xs">
+                  {t('newChat', lang)}
+                </span>
               </button>
 
               {/* Incognito Mode */}
               <button
                 type="button"
-                aria-label={isIncognito ? 'Exit incognito mode' : 'Start incognito session'}
+                aria-label={isIncognito ? t('exitIncognito', lang) : t('incognitoMode', lang)}
                 onClick={() => {
                   onToggleIncognito?.();
                   onClose();
@@ -279,13 +279,13 @@ export function NavPanel({
                     isIncognito ? 'text-amber-600 dark:text-amber-400' : 'text-kleava-text-secondary'
                   )}
                 />
-                <span>{isIncognito ? 'Exit Incognito' : 'Incognito Mode'}</span>
+                <span>{isIncognito ? t('exitIncognito', lang) : t('incognitoMode', lang)}</span>
               </button>
 
               {/* Archive */}
               <button
                 type="button"
-                aria-label="View archived chats"
+                aria-label={t('archive', lang)}
                 onClick={() => setCurrentView('archive')}
                 className={cn(
                   'w-full flex items-center justify-between px-3 py-1.5 rounded-kleava-md',
@@ -296,7 +296,7 @@ export function NavPanel({
               >
                 <div className="flex items-center space-x-2.5">
                   <Archive className="w-3.5 h-3.5 text-kleava-text-secondary shrink-0" />
-                  <span>Archive</span>
+                  <span>{t('archive', lang)}</span>
                 </div>
                 {archivedChats.length > 0 && (
                   <span className="typography-metadata text-[9.5px] px-1.5 py-0.2 rounded-full bg-kleava-surface-soft dark:bg-[#1E2A27] text-kleava-text-secondary font-mono">
@@ -308,7 +308,7 @@ export function NavPanel({
               {/* Projects */}
               <button
                 type="button"
-                aria-label="Open project workspace"
+                aria-label={t('project', lang)}
                 onClick={() => {
                   onNavigate?.('project');
                   onClose();
@@ -323,7 +323,7 @@ export function NavPanel({
                 )}
               >
                 <FolderKanban className="w-3.5 h-3.5 text-kleava-text-secondary shrink-0" />
-                <span>Projects</span>
+                <span>{t('project', lang)}</span>
               </button>
             </div>
 
@@ -332,20 +332,19 @@ export function NavPanel({
               <ChatSearch
                 ref={searchInputRef}
                 value={searchQuery}
-                placeholder="Search chats, settings, models, memory..."
+                placeholder={t('searchChats', lang)}
                 onChange={setSearchQuery}
                 onClear={() => setSearchQuery('')}
               />
             </div>
 
-            {/* 4. Content Body: Switch between Global Search Results and Recent Chats */}
+            {/* 4. Content Body: Global Search Results or Recent Chats */}
             {isSearchActive ? (
-              /* Categorized Global Search Results View */
               <div className="max-h-[220px] sm:max-h-[260px] overflow-y-auto pr-0.5 scrollbar-none pt-1 space-y-3">
                 {!hasGlobalResults ? (
                   <div className="py-8 text-center px-4">
                     <p className="typography-caption text-kleava-text-secondary text-xs">
-                      No results found for &ldquo;{searchQuery}&rdquo;
+                      {t('noChatsFound', lang)}
                     </p>
                   </div>
                 ) : (
@@ -392,7 +391,6 @@ export function NavPanel({
                 )}
               </div>
             ) : (
-              /* Default Chronological Recent Chats */
               <div className="max-h-[220px] sm:max-h-[260px] overflow-y-auto pr-0.5 scrollbar-none pt-1">
                 <ChatList
                   chats={chats}
@@ -411,12 +409,13 @@ export function NavPanel({
               </div>
             )}
 
-            {/* 5. Bottom Anchored User Profile & Settings */}
+            {/* 5. Bottom Anchored User Profile */}
             <div className="pt-2 border-t border-kleava-border-subtle/30 shrink-0">
               <UserProfile
                 user={user}
                 onOpenSettings={() => setCurrentView('settings')}
-                onSignIn={() => setCurrentView('settings')}
+                onLogin={(newUser) => loginUser(newUser)}
+                onLogout={() => logoutUser()}
               />
             </div>
           </div>

@@ -1,8 +1,8 @@
 import { LanguageCode } from '@/types';
-import { GREETINGS_CONFIG, TimeOfDayContext, GreetingText } from '@/config/greetings';
+import { GREETINGS_CONFIG, TimeOfDayContext, GreetingOption } from '@/config/greetings';
 
 /**
- * Derives the active time-of-day bracket from client system time.
+ * Derives the active time-of-day context from client local time.
  */
 export function getTimeOfDayContext(date: Date = new Date()): TimeOfDayContext {
     const hour = date.getHours();
@@ -13,28 +13,40 @@ export function getTimeOfDayContext(date: Date = new Date()): TimeOfDayContext {
 }
 
 /**
- * Deterministically resolves contextual greeting text with user name formatting.
+ * Resolves a dynamic, natural greeting based on local time, language,
+ * and user profile display name with controlled session variance.
  */
 export function resolveGreeting({
     language = 'en',
     userName,
     date = new Date(),
+    seed = 0,
 }: {
     language?: LanguageCode;
     userName?: string;
     date?: Date;
+    seed?: number;
 }): { heading: string; supporting: string } {
     const timeContext = getTimeOfDayContext(date);
     const langConfig = GREETINGS_CONFIG[language] || GREETINGS_CONFIG.en;
-    const greetingData: GreetingText = langConfig[timeContext] || langConfig.morning;
+    const optionsList: GreetingOption[] = langConfig[timeContext] || langConfig.morning;
 
-    let heading = greetingData.greeting;
+    // Controlled index selection (stable per session seed or date hour)
+    const index = Math.abs(seed + date.getHours()) % optionsList.length;
+    const selected: GreetingOption = optionsList[index] || optionsList[0];
+
+    let heading = selected.greeting;
     if (userName && userName.trim().length > 0) {
-        heading = `${greetingData.greeting}, ${userName.trim()}`;
+        const trimmedName = userName.trim();
+        if (language === 'bn') {
+            heading = `${selected.greeting}, ${trimmedName}`;
+        } else {
+            heading = `${selected.greeting}, ${trimmedName}`;
+        }
     }
 
     return {
         heading,
-        supporting: greetingData.supportingLine,
+        supporting: selected.supportingLine,
     };
 }

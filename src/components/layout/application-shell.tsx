@@ -55,7 +55,7 @@ export function MainRegion({ children, className, ...props }: ShellRegionProps) 
 
 /**
  * BottomRegion: Interaction area holding the adaptive composer.
- * Raised with comfortable bottom padding for an elegant floating presence.
+ * Elevated with comfortable breathing room from the viewport bottom edge.
  */
 export function BottomRegion({ children, className, ...props }: ShellRegionProps) {
   return (
@@ -64,7 +64,7 @@ export function BottomRegion({ children, className, ...props }: ShellRegionProps
       aria-label="Interactive composer region"
       className={cn(
         'w-full shrink-0 z-30',
-        'pb-4 sm:pb-6 md:pb-8 pt-2', // Lifted comfortably from bottom
+        'pb-6 sm:pb-8 md:pb-10 pt-2', // Elevated breathing room from bottom
         'flex flex-col items-center justify-end',
         className
       )}

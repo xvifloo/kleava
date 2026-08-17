@@ -117,7 +117,7 @@ export type ChatTimeGroup = 'Pinned' | 'Today' | 'Yesterday' | 'Previous 7 Days'
 export interface UserProfile {
   id: string;
   name: string;
-  email?: string;
+  email: string;
   avatarUrl?: string;
   plan?: string;
 }

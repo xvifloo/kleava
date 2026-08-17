@@ -3,7 +3,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   ChatSession,
-  UserProfile as UserProfileType,
   ComposerAttachment,
   ChatMessage,
   MessageFeedback,
@@ -29,14 +28,6 @@ import { WelcomeState } from '@/components/modules/welcome-state';
 import { ConversationView } from '@/components/messages/conversation-view';
 import { NavPanel } from '@/components/layout/nav-panel';
 import { ChatComposer } from '@/components/composer/chat-composer';
-
-// Mock User Profile
-const CURRENT_USER: UserProfileType = {
-  id: 'usr_1',
-  name: 'Nafis',
-  email: 'nafis@xvifloo.com',
-  plan: 'Workspace Pro',
-};
 
 // Initial Mock Dataset for Recent Chats
 const INITIAL_CHATS: ChatSession[] = [
@@ -86,6 +77,7 @@ export default function HomePage() {
     injectMemoryInContext,
     memories,
     addMemory,
+    currentUser,
     setActiveModelId,
     dispatchAppNotification,
   } = useSettings();
@@ -105,7 +97,7 @@ export default function HomePage() {
   const navTriggerRef = useRef<HTMLButtonElement>(null);
   const activeStreamControllerRef = useRef<StreamController | null>(null);
 
-  // Global Ctrl/Cmd + K shortcut listener to open search
+  // Global Ctrl/Cmd + K shortcut listener
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -117,7 +109,7 @@ export default function HomePage() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
 
-  // Clean stream and audio on unmount
+  // Clean stream on unmount
   useEffect(() => {
     return () => {
       activeStreamControllerRef.current?.cancel();
@@ -213,14 +205,14 @@ export default function HomePage() {
     // 3. Compile personalization directive envelope
     const personalizationEnvelope = compilePersonalizationEnvelope(personalization);
 
-    // 4. Compile full model payload with active generation parameters
+    // 4. Compile full model payload
     compileModelPayload({
       prompt: `${message}${personalizationEnvelope}${memoryContextEnvelope}`,
       config: generationConfig,
       model: effectiveModel,
     });
 
-    // 5. Create or update session in recent chats
+    // 5. Create or update session in recent chats (skip if incognito or saveChatHistory disabled)
     if (!isIncognito && privacy.saveChatHistory) {
       if (!activeChatId) {
         const initialTitle =
@@ -257,7 +249,7 @@ export default function HomePage() {
 
     setMessages((prev) => [...prev, newUserMsg]);
 
-    // 7. Check for candidate memory suggestions
+    // 7. Candidate memory detection
     if (!isIncognito && autoSuggestMemories && useMemory) {
       const candidate = detectCandidateMemories(message, currentChatId);
       if (candidate) {
@@ -467,9 +459,8 @@ export default function HomePage() {
     });
   };
 
-  // Global Search Navigation Dispatchers
   const handleSelectSettingsSection = (section: SettingsSection) => {
-    // Navigated via nav-panel
+    // Navigate via nav-panel
   };
 
   const handleSelectModel = (modelId: string) => {
@@ -485,7 +476,7 @@ export default function HomePage() {
 
   return (
     <ApplicationShell>
-      {/* Top Region: Two-Dot Trigger, Incognito Badge, and XviFloo Logo */}
+      {/* Top Region */}
       <ApplicationShell.Top>
         <BrandHeader
           isNavOpen={isNavOpen}
@@ -496,7 +487,7 @@ export default function HomePage() {
         />
       </ApplicationShell.Top>
 
-      {/* Floating Navigation Window with Global Search */}
+      {/* Floating Navigation Window */}
       <NavPanel
         isOpen={isNavOpen}
         onClose={handleCloseNav}
@@ -504,7 +495,7 @@ export default function HomePage() {
         isIncognito={isIncognito}
         chats={chats}
         messages={messages}
-        user={isIncognito ? undefined : CURRENT_USER}
+        user={isIncognito ? null : currentUser}
         activeChatId={activeChatId}
         onSelectChat={handleSelectChat}
         onSelectSettingsSection={handleSelectSettingsSection}
@@ -520,10 +511,10 @@ export default function HomePage() {
         onToggleIncognito={handleToggleIncognito}
       />
 
-      {/* Main Region: Welcome State or Live Conversation Feed */}
+      {/* Main Region */}
       <ApplicationShell.Main>
         {!hasMessages ? (
-          <WelcomeState userName={isIncognito ? 'Guest' : CURRENT_USER.name} />
+          <WelcomeState userName={isIncognito ? 'Guest' : currentUser?.name} />
         ) : (
           <ConversationView
             messages={messages}
@@ -543,7 +534,7 @@ export default function HomePage() {
         )}
       </ApplicationShell.Main>
 
-      {/* Bottom Region: Adaptive Chat Composer */}
+      {/* Bottom Region */}
       <ApplicationShell.Bottom>
         <ChatComposer
           onSend={handleSendMessage}

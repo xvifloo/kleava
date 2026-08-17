@@ -15,6 +15,7 @@ import {
     KeyboardShortcutItem,
     ChatSession,
     ChatMessage,
+    UserProfile as UserProfileType,
 } from '@/types';
 import {
     BUILTIN_MODELS,
@@ -34,11 +35,18 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
     theme: 'light',
     accentColor: '#17BC9B', // Canonical Kleava Mint
     language: 'en',
-    fontSize: 'medium', // Default is medium (15px / 165%)
+    fontSize: 'medium',
     autoSave: true,
     compactMode: false,
     reduceMotion: false,
     soundEffects: true,
+};
+
+export const DEFAULT_USER: UserProfileType = {
+    id: 'usr_1',
+    name: 'Nafis',
+    email: 'nafis@xvifloo.com',
+    plan: 'Workspace Pro',
 };
 
 export const DEFAULT_PERSONALIZATION_SETTINGS: PersonalizationSettings = {
@@ -120,6 +128,7 @@ export const INITIAL_SAMPLE_MEMORIES: MemoryRecord[] = [
 ];
 
 const GENERAL_STORAGE_KEY = 'kleava_general_settings';
+const AUTH_USER_STORAGE_KEY = 'kleava_authenticated_user';
 const PERSONALIZATION_STORAGE_KEY = 'kleava_personalization_settings';
 const PRIVACY_STORAGE_KEY = 'kleava_privacy_settings_v2';
 const SHORTCUTS_STORAGE_KEY = 'kleava_keyboard_shortcuts_v2';
@@ -140,6 +149,7 @@ interface SettingsContextType {
     personalization: PersonalizationSettings;
     privacy: PrivacySettings;
     shortcuts: KeyboardShortcutItem[];
+    currentUser: UserProfileType | null;
     activeModelId: string;
     models: ModelProfile[];
     generationConfig: ModelGenerationConfig;
@@ -153,6 +163,8 @@ interface SettingsContextType {
     updateSettings: (partial: Partial<GeneralSettings>) => void;
     updatePersonalization: (partial: Partial<PersonalizationSettings>) => void;
     updatePrivacy: (partial: Partial<PrivacySettings>) => void;
+    loginUser: (user: UserProfileType) => void;
+    logoutUser: () => void;
     updateShortcut: (id: string, keys: string[]) => boolean;
     toggleShortcutEnabled: (id: string) => void;
     resetShortcut: (id: string) => void;
@@ -196,6 +208,7 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
     const [settings, setSettings] = useState<GeneralSettings>(DEFAULT_GENERAL_SETTINGS);
+    const [currentUser, setCurrentUser] = useState<UserProfileType | null>(DEFAULT_USER);
     const [personalization, setPersonalization] = useState<PersonalizationSettings>(DEFAULT_PERSONALIZATION_SETTINGS);
     const [privacy, setPrivacy] = useState<PrivacySettings>(DEFAULT_PRIVACY_SETTINGS);
     const [shortcuts, setShortcuts] = useState<KeyboardShortcutItem[]>(DEFAULT_SHORTCUTS);
@@ -219,6 +232,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
                 const normalizedFontSize =
                     parsed.fontSize === 'default' ? 'medium' : parsed.fontSize || 'medium';
                 setSettings((prev) => ({ ...prev, ...parsed, fontSize: normalizedFontSize }));
+            }
+
+            const storedUser = localStorage.getItem(AUTH_USER_STORAGE_KEY);
+            if (storedUser !== null) {
+                setCurrentUser(storedUser ? JSON.parse(storedUser) : null);
             }
 
             const storedPersonalization = localStorage.getItem(PERSONALIZATION_STORAGE_KEY);
@@ -287,11 +305,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         if (typeof window === 'undefined') return;
 
         const root = document.documentElement;
-
-        // 1. Accent color injection
         root.style.setProperty('--accent-primary', settings.accentColor);
 
-        // 2. Font scaling injection
         if (settings.fontSize === 'small') {
             root.style.setProperty('--font-size-multiplier', '0.90');
         } else if (settings.fontSize === 'large') {
@@ -300,21 +315,18 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             root.style.setProperty('--font-size-multiplier', '1.0');
         }
 
-        // 3. Compact mode density attribute
         if (settings.compactMode) {
             root.setAttribute('data-density', 'compact');
         } else {
             root.removeAttribute('data-density');
         }
 
-        // 4. Reduce motion override
         if (settings.reduceMotion) {
             root.setAttribute('data-reduce-motion', 'true');
         } else {
             root.removeAttribute('data-reduce-motion');
         }
 
-        // 5. Theme management
         const applyTheme = () => {
             let isDark = false;
             if (settings.theme === 'system') {
@@ -342,7 +354,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         }
     }, [settings]);
 
-    // Combined models catalogue
     const models = useMemo(() => {
         const combined = [...BUILTIN_MODELS, ...customModels];
         return combined.map((m) => {
@@ -399,6 +410,25 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             }
             return next;
         });
+    }, []);
+
+    // Auth User Management
+    const loginUser = useCallback((user: UserProfileType) => {
+        setCurrentUser(user);
+        try {
+            localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+        } catch {
+            // Safe write fallback
+        }
+    }, []);
+
+    const logoutUser = useCallback(() => {
+        setCurrentUser(null);
+        try {
+            localStorage.setItem(AUTH_USER_STORAGE_KEY, '');
+        } catch {
+            // Safe write fallback
+        }
     }, []);
 
     // Shortcut Management Handlers
@@ -716,6 +746,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
                 app: 'Kleava AI',
                 version: '0.1.0',
                 exportedAt: new Date().toISOString(),
+                user: currentUser,
                 settings: {
                     general: settings,
                     personalization,
@@ -764,7 +795,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         },
-        [settings, personalization, privacy, generationConfig, notifications, shortcuts, memories]
+        [settings, personalization, privacy, generationConfig, notifications, shortcuts, memories, currentUser]
     );
 
     const importMemories = useCallback(
@@ -918,6 +949,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
     const resetSettings = useCallback(() => {
         setSettings(DEFAULT_GENERAL_SETTINGS);
+        setCurrentUser(DEFAULT_USER);
         setPersonalization(DEFAULT_PERSONALIZATION_SETTINGS);
         setPrivacy(DEFAULT_PRIVACY_SETTINGS);
         setShortcuts(DEFAULT_SHORTCUTS);
@@ -933,6 +965,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setProviderKeys({});
         try {
             localStorage.removeItem(GENERAL_STORAGE_KEY);
+            localStorage.removeItem(AUTH_USER_STORAGE_KEY);
             localStorage.removeItem(PERSONALIZATION_STORAGE_KEY);
             localStorage.removeItem(PRIVACY_STORAGE_KEY);
             localStorage.removeItem(SHORTCUTS_STORAGE_KEY);
@@ -967,6 +1000,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
                 personalization,
                 privacy,
                 shortcuts,
+                currentUser,
                 activeModelId,
                 models,
                 generationConfig,
@@ -980,6 +1014,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
                 updateSettings,
                 updatePersonalization,
                 updatePrivacy,
+                loginUser,
+                logoutUser,
                 updateShortcut,
                 toggleShortcutEnabled,
                 resetShortcut,
