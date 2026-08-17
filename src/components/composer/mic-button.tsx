@@ -42,7 +42,7 @@ interface SpeechWindow extends Window {
 }
 
 /**
- * MicButton: 36x36px borderless control with Light (#E2EEE9) and Dark (#1E2A27) soft surface.
+ * MicButton: 36x36px borderless control matching the theme-aware surface of ModelSelector.
  */
 export function MicButton({ onTranscript, disabled = false, className }: MicButtonProps) {
     const [isListening, setIsListening] = useState(false);
@@ -131,11 +131,9 @@ export function MicButton({ onTranscript, disabled = false, className }: MicButt
                 disabled={disabled}
                 onClick={toggleListening}
                 className={cn(
-                    // 36x36px borderless control
                     'w-[36px] h-[36px] min-w-[36px] min-h-[36px] rounded-kleava-control flex items-center justify-center shrink-0 border-0 outline-none ring-0',
-                    // Soft theme-aware surface (#E2EEE9 in light, #1E2A27 in dark)
-                    'bg-[#E2EEE9] dark:bg-[#1E2A27] text-kleava-text-secondary dark:text-[#8A9E97]',
-                    'hover:bg-[#E2F5F0] dark:hover:bg-[#253531] hover:text-kleava-accent',
+                    'bg-kleava-surface-soft dark:bg-[#1E2A27] text-kleava-text-secondary dark:text-[#8A9E97]',
+                    'hover:bg-kleava-surface-light dark:hover:bg-[#253531] hover:text-kleava-accent',
                     'transition-all duration-150 active:scale-95 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kleava-accent',
                     isListening && 'bg-kleava-accent/15 text-kleava-accent ring-2 ring-kleava-accent/40 animate-pulse',
                     disabled && 'opacity-60 cursor-not-allowed',

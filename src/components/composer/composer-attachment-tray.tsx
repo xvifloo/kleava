@@ -29,7 +29,7 @@ function getFileIcon(type: string, name: string) {
 }
 
 /**
- * ComposerAttachmentTray: Compact scrollable attachment strip.
+ * ComposerAttachmentTray: Borderless, clean attachment preview chips.
  */
 export function ComposerAttachmentTray({
     attachments,
@@ -42,17 +42,17 @@ export function ComposerAttachmentTray({
         <div
             aria-label="Attached files"
             className={cn(
-                'w-full px-3 py-1 flex items-center space-x-2 overflow-x-auto scrollbar-none shrink-0 select-none',
+                'w-full px-3.5 pt-1.5 pb-0.5 flex items-center space-x-2 overflow-x-auto scrollbar-none shrink-0 select-none',
                 className
             )}
         >
             {attachments.map((att) => (
                 <div
                     key={att.id}
-                    className="relative group flex items-center space-x-1.5 pl-1.5 pr-2 py-1 rounded-[6px] bg-kleava-surface-soft border border-kleava-border-subtle/80 text-[11.5px] text-kleava-text-primary shrink-0 transition-shadow hover:shadow-xs"
+                    className="relative group flex items-center space-x-1.5 pl-1.5 pr-2 py-1 rounded-[6px] bg-kleava-surface-soft dark:bg-[#1E2A27] border-0 text-[11.5px] text-kleava-text-primary shrink-0 transition-shadow shadow-xs"
                 >
                     {att.previewUrl ? (
-                        <div className="w-5 h-5 relative rounded overflow-hidden shrink-0 bg-kleava-surface border border-kleava-border-subtle">
+                        <div className="w-5 h-5 relative rounded overflow-hidden shrink-0 bg-kleava-surface">
                             <Image
                                 src={att.previewUrl}
                                 alt={att.name}
@@ -79,7 +79,7 @@ export function ComposerAttachmentTray({
                         type="button"
                         aria-label={`Remove attachment ${att.name}`}
                         onClick={() => onRemoveAttachment(att.id)}
-                        className="w-4 h-4 rounded-full hover:bg-kleava-surface-light flex items-center justify-center text-kleava-text-secondary hover:text-kleava-destructive transition-colors ml-0.5 focus-ring-kleava"
+                        className="w-4 h-4 rounded-full hover:bg-kleava-surface-light dark:hover:bg-[#253531] flex items-center justify-center text-kleava-text-secondary hover:text-kleava-destructive transition-colors ml-0.5 focus-ring-kleava"
                     >
                         <X className="w-2.5 h-2.5" />
                     </button>

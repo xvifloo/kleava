@@ -12,16 +12,13 @@ export interface WelcomeStateProps {
 }
 
 /**
- * WelcomeState: Bold Editorial Welcome Canvas for Kleava AI.
- * - Bold Lora Editorial Typography (2x visual prominence)
- * - Dynamic Contextual Greeting & Natural Supporting Line
- * - Fluid W520xH1090 compositional balance
+ * WelcomeState: Beautiful, balanced welcome canvas.
+ * Perfectly placed at natural upper-middle screen position.
  */
 export function WelcomeState({ userName, className }: WelcomeStateProps) {
   const { settings } = useSettings();
   const [mounted, setMounted] = useState(false);
 
-  // Initialize with deterministic base state to prevent SSR hydration mismatches
   const [resolved, setResolved] = useState(() =>
     resolveGreeting({
       language: settings.language,
@@ -29,7 +26,6 @@ export function WelcomeState({ userName, className }: WelcomeStateProps) {
     })
   );
 
-  // Synchronize on client mount and settings change
   useEffect(() => {
     setResolved(
       resolveGreeting({
@@ -47,40 +43,38 @@ export function WelcomeState({ userName, className }: WelcomeStateProps) {
     <section
       aria-label="Welcome and initial workspace state"
       className={cn(
-        'w-full h-full flex flex-col items-center justify-center',
-        'px-4 sm:px-6 py-6 text-center select-none',
+        'w-full flex-1 flex flex-col items-center justify-start',
+        'pt-16 sm:pt-24 md:pt-32 pb-6 px-4 sm:px-6 text-center select-none', // Positioned nicely lower
         'transition-opacity duration-500 ease-out',
         mounted ? 'opacity-100' : 'opacity-95',
         className
       )}
     >
-      <div className="w-full max-w-[540px] flex flex-col items-center justify-center space-y-6 md:space-y-7 my-auto">
-        {/* 1. Kleava Logo Anchor */}
+      <div className="w-full max-w-[540px] flex flex-col items-center justify-center space-y-4 sm:space-y-5">
+        {/* 1. Kleava Logo */}
         <div className="relative flex items-center justify-center">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-[72px] md:h-[72px] flex items-center justify-center transition-transform duration-300 hover:scale-105">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 flex items-center justify-center transition-transform duration-300 hover:scale-105">
             <KleavaLogo
-              size={64}
-              className="w-14 h-14 sm:w-16 sm:h-16 md:w-[64px] md:h-[64px] text-kleava-accent drop-shadow-sm pointer-events-none"
+              size={56}
+              className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 text-kleava-accent drop-shadow-xs pointer-events-none"
             />
           </div>
         </div>
 
-        {/* 2. Bold Editorial Welcome Typography (2x Prominence) */}
-        <div className="space-y-2.5 max-w-md sm:max-w-lg mx-auto">
-          {/* Main Welcome Message: Bold, 2x Size, Lora/Hind Siliguri */}
+        {/* 2. Refined Greeting Typography */}
+        <div className="space-y-2 max-w-md sm:max-w-lg mx-auto">
           <h1
             className={cn(
-              'text-3xl sm:text-4xl md:text-5xl lg:text-[50px] font-bold tracking-tight text-kleava-text-primary leading-[1.15]',
-              isBengali ? 'font-bangla font-semibold' : 'font-editorial'
+              'text-2xl sm:text-3xl md:text-[34px] font-medium md:font-semibold tracking-tight text-kleava-text-primary leading-tight',
+              isBengali ? 'font-bangla' : 'font-editorial'
             )}
           >
             {resolved.heading}
           </h1>
 
-          {/* Dynamic Supporting Context Line */}
           <p
             className={cn(
-              'text-sm sm:text-base md:text-lg text-kleava-text-secondary leading-relaxed max-w-xs sm:max-w-md mx-auto',
+              'text-xs sm:text-sm md:text-[15px] text-kleava-text-secondary leading-relaxed max-w-xs sm:max-w-sm mx-auto',
               isBengali ? 'font-bangla' : 'font-ui'
             )}
           >

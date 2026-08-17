@@ -13,14 +13,14 @@ export interface ShellRegionProps extends React.HTMLAttributes<HTMLElement> {
 }
 
 /**
- * TopRegion: Firmly anchored sticky top navigation area.
+ * TopRegion: Completely clean & transparent floating bar (No rectangle bar or background).
  */
 export function TopRegion({ children, className, ...props }: ShellRegionProps) {
   return (
     <header
       role="banner"
       className={cn(
-        'w-full shrink-0 z-40 sticky top-0',
+        'w-full shrink-0 z-40 bg-transparent pointer-events-auto',
         'pt-[env(safe-area-inset-top,0px)]',
         'h-12 sm:h-14 flex items-center justify-between',
         className
@@ -55,7 +55,6 @@ export function MainRegion({ children, className, ...props }: ShellRegionProps) 
 
 /**
  * BottomRegion: Interaction area holding the adaptive composer.
- * Elevated with comfortable breathing room from the viewport bottom edge.
  */
 export function BottomRegion({ children, className, ...props }: ShellRegionProps) {
   return (
@@ -63,8 +62,8 @@ export function BottomRegion({ children, className, ...props }: ShellRegionProps
       role="region"
       aria-label="Interactive composer region"
       className={cn(
-        'w-full shrink-0 z-30',
-        'pb-6 sm:pb-8 md:pb-10 pt-2', // Elevated breathing room from bottom
+        'w-full shrink-0 z-30 bg-transparent',
+        'pb-6 sm:pb-8 md:pb-10 pt-2',
         'flex flex-col items-center justify-end',
         className
       )}

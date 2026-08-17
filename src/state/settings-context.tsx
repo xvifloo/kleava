@@ -33,7 +33,7 @@ import {
 
 export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
     theme: 'light',
-    accentColor: '#17BC9B', // Canonical Kleava Mint
+    accentColor: '#17BC9B',
     language: 'en',
     fontSize: 'medium',
     autoSave: true,
@@ -109,21 +109,6 @@ export const INITIAL_SAMPLE_MEMORIES: MemoryRecord[] = [
         version: 2,
         createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
         updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    },
-    {
-        id: 'mem_3',
-        title: 'Design System Tokens',
-        content: 'Canonical background is #F1FFF9, primary accent is #17BC9B, corner radiuses are 6px and 25px.',
-        type: 'Project',
-        source: 'Manual',
-        scope: 'Project',
-        usage: 'relevant',
-        enabled: true,
-        pinned: false,
-        tags: ['design-tokens'],
-        version: 2,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
     },
 ];
 
@@ -300,13 +285,16 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         }
     }, []);
 
-    // DOM attributes and CSS variable synchronization
+    // Synchronize CSS custom properties & HTML root attributes
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
         const root = document.documentElement;
+
+        // 1. Accent color injection
         root.style.setProperty('--accent-primary', settings.accentColor);
 
+        // 2. Font scaling injection
         if (settings.fontSize === 'small') {
             root.style.setProperty('--font-size-multiplier', '0.90');
         } else if (settings.fontSize === 'large') {
@@ -315,18 +303,21 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             root.style.setProperty('--font-size-multiplier', '1.0');
         }
 
+        // 3. Compact mode density attribute
         if (settings.compactMode) {
             root.setAttribute('data-density', 'compact');
         } else {
             root.removeAttribute('data-density');
         }
 
+        // 4. Reduce motion override
         if (settings.reduceMotion) {
             root.setAttribute('data-reduce-motion', 'true');
         } else {
             root.removeAttribute('data-reduce-motion');
         }
 
+        // 5. Strict Theme management (Fixes device-dark vs manual-light conflict)
         const applyTheme = () => {
             let isDark = false;
             if (settings.theme === 'system') {
@@ -339,7 +330,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
                 root.classList.add('dark');
                 root.setAttribute('data-theme', 'dark');
             } else {
-                root.classList.remove('dark');
+                root.classList.remove('dark'); // Clears dark class completely when Light is selected
                 root.setAttribute('data-theme', 'light');
             }
         };

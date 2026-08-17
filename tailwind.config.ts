@@ -1,6 +1,7 @@
 ﻿import type { Config } from 'tailwindcss';
 
 const config: Config = {
+  darkMode: 'class', // Strictly class-based dark mode (enables manual light mode over system dark)
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -49,20 +50,11 @@ const config: Config = {
           'monospace',
         ],
       },
-      fontSize: {
-        'ai-base': ['15px', { lineHeight: '1.65', letterSpacing: '0.3px' }],
-      },
       borderRadius: {
         'kleava-sm': '6px',
         'kleava-md': '10px',
         'kleava-lg': '16px',
         'kleava-control': '25px',
-      },
-      spacing: {
-        '4.5': '1.125rem',
-        '18': '4.5rem',
-        '116px': '116px',
-        'gutter-h': '20px',
       },
       boxShadow: {
         'kleava-subtle': '0 1px 3px rgba(45, 45, 45, 0.04), 0 1px 2px rgba(45, 45, 45, 0.02)',

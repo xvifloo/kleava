@@ -1,12 +1,11 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { UploadCloud, Maximize2, Minimize2 } from 'lucide-react';
+import { UploadCloud } from 'lucide-react';
 import { ComposerAttachment } from '@/types';
 import { DEFAULT_MODEL_ID } from '@/config/models';
 import { useAttachments } from '@/hooks/use-attachments';
 import { useSettings } from '@/state/settings-context';
-import { t } from '@/lib/i18n';
 import { ComposerResizeHandle } from '@/components/composer/composer-resize-handle';
 import { ComposerAttachmentButton } from '@/components/composer/composer-attachment-button';
 import { ComposerAttachmentTray } from '@/components/composer/composer-attachment-tray';
@@ -23,12 +22,33 @@ export interface ChatComposerProps {
   className?: string;
 }
 
-const DEFAULT_HEIGHT = 116;
-const MIN_HEIGHT = 116;
+// Compact Default Height
+const DEFAULT_HEIGHT = 96;
+const MIN_HEIGHT = 96;
+
+const CHAT_PLACEHOLDERS = {
+  en: [
+    'Ask anything...',
+    'How can I help you today?',
+    'Write a TypeScript component...',
+    'Plan a landing page or structure...',
+    'Explain code or solve a problem...',
+  ],
+  bn: [
+    'যেকোনো কিছু জিজ্ঞাসা করুন...',
+    'আজ কীভাবে সাহায্য করতে পারি?',
+    'একটি নেক্সটজেএস কম্পোনেন্ট তৈরি করুন...',
+    'প্রজেক্টের পরিকল্পনা বা কোড লিখুন...',
+    'যেকোনো কোড বিশ্লেষণ বা সমস্যার সমাধান করুন...',
+  ],
+};
 
 /**
- * ChatComposer: Unified 36px bottom controls bar (Attachment, ModelSelector, Mic, Send)
- * with auto-grow multiline input and zero hard borders.
+ * ChatComposer:
+ * - Compact 96px default height
+ * - Stable session-specific placeholder without distracting timer cycling
+ * - Clean "Ask anything..." text (without "in Bangla or English")
+ * - 40x40px prominent super-rounded hexagon send button
  */
 export function ChatComposer({
   onSend,
@@ -38,13 +58,15 @@ export function ChatComposer({
   className,
 }: ChatComposerProps) {
   const { settings } = useSettings();
-  const lang = settings.language;
+  const lang = settings.language === 'bn' ? 'bn' : 'en';
 
   const [text, setText] = useState('');
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
   const [isDraggingHandle, setIsDraggingHandle] = useState(false);
-  const [isExpandedMode, setIsExpandedMode] = useState(false);
   const [selectedModelId, setSelectedModelId] = useState<string>(DEFAULT_MODEL_ID);
+
+  // Stable session placeholder (picked once per session without flip-flopping)
+  const [stablePlaceholder, setStablePlaceholder] = useState(CHAT_PLACEHOLDERS.en[0]);
 
   const {
     attachments,
@@ -64,25 +86,35 @@ export function ChatComposer({
   const dragStartHeightRef = useRef<number>(DEFAULT_HEIGHT);
   const isManuallyResizedRef = useRef<boolean>(false);
 
-  // Dynamic Smooth Auto-Grow Height Calculation
+  // Select a clean stable placeholder per chat session or language switch
+  useEffect(() => {
+    const list = CHAT_PLACEHOLDERS[lang];
+    const randomIndex = Math.floor(Math.random() * list.length);
+    setStablePlaceholder(list[randomIndex] || list[0]);
+  }, [lang]);
+
+  // Smooth Auto-grow calculation
   const adjustHeightForContent = useCallback(() => {
-    if (isExpandedMode || isManuallyResizedRef.current) return;
+    if (isManuallyResizedRef.current) return;
 
     const textarea = textareaRef.current;
     if (!textarea) return;
 
     textarea.style.height = 'auto';
     const textScrollHeight = textarea.scrollHeight;
+
     const trayHeight = attachments.length > 0 ? 38 : 0;
-    const chromeHeight = 76 + trayHeight;
+    // Top handle padding + Bottom controls dock (~52px) = ~60px
+    const chromeHeight = 60 + trayHeight;
 
     const calculatedHeight = Math.min(
-      Math.max(textScrollHeight + chromeHeight - 16, MIN_HEIGHT + trayHeight),
+      Math.max(textScrollHeight + chromeHeight, MIN_HEIGHT + trayHeight),
       Math.min(window.innerHeight * 0.52, 320)
     );
 
     setHeight(calculatedHeight);
-  }, [attachments.length, isExpandedMode]);
+    textarea.style.height = '100%';
+  }, [attachments.length]);
 
   useEffect(() => {
     adjustHeightForContent();
@@ -104,12 +136,6 @@ export function ChatComposer({
       maxViewportHeight
     );
     setHeight(newHeight);
-
-    if (newHeight >= window.innerHeight * 0.72) {
-      setIsExpandedMode(true);
-    } else {
-      setIsExpandedMode(false);
-    }
   }, []);
 
   const handleResizeEnd = useCallback(() => {
@@ -140,20 +166,6 @@ export function ChatComposer({
     };
   }, [isDraggingHandle, handleResizeMove, handleResizeEnd]);
 
-  // Toggle Expanded Mode
-  const toggleExpandedMode = () => {
-    if (isExpandedMode) {
-      setIsExpandedMode(false);
-      isManuallyResizedRef.current = false;
-      setHeight(DEFAULT_HEIGHT);
-    } else {
-      setIsExpandedMode(true);
-      isManuallyResizedRef.current = true;
-      setHeight(Math.min(window.innerHeight * 0.8, 520));
-    }
-    setTimeout(() => textareaRef.current?.focus(), 100);
-  };
-
   // Submit Handler
   const handleSend = () => {
     if (isProcessing) return;
@@ -165,7 +177,6 @@ export function ChatComposer({
     clearAttachments();
     isManuallyResizedRef.current = false;
     setHeight(DEFAULT_HEIGHT);
-    setIsExpandedMode(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -193,7 +204,7 @@ export function ChatComposer({
         'relative w-full rounded-kleava-sm select-none font-ui',
         'bg-kleava-surface text-kleava-text-primary',
         'border-0 shadow-[0_4px_24px_-4px_rgba(23,188,155,0.14),0_2px_8px_-2px_rgba(23,188,155,0.08)]',
-        'flex flex-col justify-between transition-[box-shadow] duration-200',
+        'flex flex-col justify-between transition-[height,box-shadow] duration-150 ease-out',
         isDraggingHandle && 'shadow-[0_6px_28px_-4px_rgba(23,188,155,0.22)]',
         isDraggingFile && 'ring-2 ring-dashed ring-kleava-accent bg-kleava-surface-light/40',
         className
@@ -204,7 +215,7 @@ export function ChatComposer({
         <div className="absolute inset-0 z-30 rounded-kleava-sm bg-kleava-surface-light/95 flex flex-col items-center justify-center space-y-1 pointer-events-none animate-in fade-in duration-150">
           <UploadCloud className="w-6 h-6 text-kleava-accent animate-bounce" />
           <span className="typography-label text-xs text-kleava-accent font-medium">
-            {t('dropFiles', lang)}
+            Drop files to attach
           </span>
         </div>
       )}
@@ -216,29 +227,18 @@ export function ChatComposer({
         isDragging={isDraggingHandle}
       />
 
-      {/* 3. Top Compact Bar */}
-      <div className="pt-1.5 px-3.5 flex items-center justify-between shrink-0 select-none">
-        {errorMessage ? (
+      {/* Error Message Tooltip if any */}
+      {errorMessage && (
+        <div className="pt-2 px-3.5">
           <span className="typography-metadata text-[10.5px] text-kleava-destructive font-medium animate-in fade-in">
             {errorMessage}
           </span>
-        ) : (
-          <span />
-        )}
+        </div>
+      )}
 
-        <button
-          type="button"
-          aria-label={isExpandedMode ? 'Collapse writing mode' : 'Expand writing mode'}
-          onClick={toggleExpandedMode}
-          className="p-1 rounded text-kleava-text-secondary/50 hover:text-kleava-text-primary hover:bg-kleava-surface-soft dark:hover:bg-[#1E2A27] transition-colors focus-ring-kleava"
-        >
-          {isExpandedMode ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
-        </button>
-      </div>
-
-      {/* 4. Non-Overlapping Attachment Tray */}
+      {/* 3. Attachment Tray */}
       {attachments.length > 0 && (
-        <div className="shrink-0 mb-1">
+        <div className="shrink-0 pt-1.5">
           <ComposerAttachmentTray
             attachments={attachments}
             onRemoveAttachment={removeAttachment}
@@ -246,30 +246,30 @@ export function ChatComposer({
         </div>
       )}
 
-      {/* 5. Fluid 15px Multi-line Textarea Area */}
-      <div className="flex-1 px-3.5 pt-0.5 pb-1 flex flex-col min-h-0 overflow-hidden">
+      {/* 4. Fluid Multi-line Textarea Area */}
+      <div className="flex-1 px-3.5 pt-2 pb-0.5 flex flex-col min-h-[40px] overflow-hidden">
         <textarea
           ref={textareaRef}
           value={text}
           disabled={disabled || isProcessing}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={t('composerPlaceholder', lang)}
+          placeholder={stablePlaceholder}
           aria-label="Message prompt"
           className={cn(
             'w-full h-full resize-none bg-transparent',
-            'text-[15px] sm:text-base leading-relaxed text-kleava-text-primary',
+            'text-[15px] leading-relaxed text-kleava-text-primary',
             lang === 'bn' ? 'font-bangla' : 'font-ui',
-            'placeholder:text-kleava-text-secondary/60 placeholder:text-[15px]',
+            'placeholder:text-kleava-text-secondary/55',
             'focus:outline-none scrollbar-none overflow-y-auto',
             isProcessing && 'opacity-70'
           )}
         />
       </div>
 
-      {/* 6. Clean Bottom Controls Dock (Unified 36px Height on All Buttons) */}
-      <div className="px-3 pb-2.5 pt-1 flex items-center justify-between shrink-0 select-none">
-        {/* Left: 36px Attachment Button & 36px Model Selector */}
+      {/* 5. Clean Bottom Controls Dock */}
+      <div className="px-2.5 pb-2 pt-1 flex items-center justify-between shrink-0 select-none">
+        {/* Left: Attachment & Model Selector */}
         <div className="flex items-center space-x-1.5">
           <ComposerAttachmentButton
             onFilesSelected={addFiles}
@@ -283,7 +283,7 @@ export function ChatComposer({
           />
         </div>
 
-        {/* Right: 36px Microphone & Symmetrical 36x36px Circular-Hexagonal Send Button */}
+        {/* Right: Microphone & Prominently Sized 40x40px Send Button */}
         <div className="flex items-center space-x-1.5">
           <MicButton
             onTranscript={handleVoiceTranscript}

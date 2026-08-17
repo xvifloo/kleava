@@ -14,11 +14,8 @@ export interface SendButtonProps {
 }
 
 /**
- * SendButton: Soft-faceted rounded-hexagonal send control for Kleava AI.
- * - Symmetrical 36x36px clickable area perfectly matching the microphone button
- * - Highly rounded vertices (almost circular silhouette with subtle hexagonal character)
- * - Zero hard outline borders
- * - Upward Arrow <-> Stop Square morphing with smooth CCW rotation during generation
+ * SendButton: Prominently sized 40x40px soft-faceted rounded-hexagon send control.
+ * High corner-radius with smooth color transitions and no sharp vertices.
  */
 export function SendButton({
     canSend,
@@ -56,44 +53,48 @@ export function SendButton({
             disabled={!isInteractive}
             onClick={handleClick}
             className={cn(
-                // Strictly matched 36x36px frame with microphone button
-                'relative w-[36px] h-[36px] min-w-[36px] max-w-[36px] min-h-[36px] max-h-[36px]',
+                // Enhanced 40x40px prominent frame
+                'relative w-[40px] h-[40px] min-w-[40px] max-w-[40px] min-h-[40px] max-h-[40px]',
                 'flex items-center justify-center select-none shrink-0 aspect-square border-0 outline-none ring-0',
-                'transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kleava-accent',
-                isInteractive ? 'cursor-pointer active:scale-95' : 'cursor-not-allowed opacity-50',
+                'transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kleava-accent',
+                isInteractive ? 'cursor-pointer active:scale-95' : 'cursor-not-allowed',
                 className
             )}
         >
-            {/* 1. Symmetrical Soft-Faceted Rounded-Hexagon Vector Silhouette */}
+            {/* Super-Rounded Hexagonal Vector Silhouette */}
             <svg
-                viewBox="0 0 38 38"
+                viewBox="0 0 40 40"
                 aria-hidden="true"
                 className={cn(
-                    'absolute inset-0 w-full h-full aspect-square transform-gpu transition-transform duration-300 pointer-events-none',
+                    'absolute inset-0 w-full h-full aspect-square transform-gpu transition-all duration-300 pointer-events-none',
                     isProcessing ? 'animate-spin-reverse' : ''
                 )}
             >
                 <path
-                    d="M 19 3.5 C 23.8 3.5, 32.2 7.8, 34.2 11.6 C 36.2 15.4, 36.2 22.6, 34.2 26.4 C 32.2 30.2, 23.8 34.5, 19 34.5 C 14.2 34.5, 5.8 30.2, 3.8 26.4 C 1.8 22.6, 1.8 15.4, 3.8 11.6 C 5.8 7.8, 14.2 3.5, 19 3.5 Z"
+                    d="M 20 3.2 C 24.5 3.2, 33.5 7.5, 35.8 11.5 C 38 15.5, 38 24.5, 35.8 28.5 C 33.5 32.5, 24.5 36.8, 20 36.8 C 15.5 36.8, 6.5 32.5, 4.2 28.5 C 2 24.5, 2 15.5, 4.2 11.5 C 6.5 7.5, 15.5 3.2, 20 3.2 Z"
                     className={cn(
                         'transition-colors duration-200',
-                        isInteractive ? 'fill-kleava-accent' : 'fill-kleava-surface-soft dark:fill-[#1E2A27]'
+                        isInteractive
+                            ? 'fill-kleava-accent'
+                            : 'fill-kleava-surface-soft dark:fill-[#1E2A27]'
                     )}
                 />
             </svg>
 
-            {/* 2. Centered Glyph: Arrow Up <-> Stop Square Morph */}
+            {/* Centered Upward Arrow <-> Stop Square Morph */}
             <div className="relative z-10 flex items-center justify-center pointer-events-none">
                 {isProcessing ? (
                     <span
-                        className="w-2.5 h-2.5 rounded-[2px] bg-white transition-all duration-150 scale-100 shadow-xs"
+                        className="w-3 h-3 rounded-[2.5px] bg-white transition-all duration-150 scale-100 shadow-xs"
                         aria-hidden="true"
                     />
                 ) : (
                     <ArrowUp
                         className={cn(
-                            'w-4 h-4 stroke-[2.7] transition-all duration-200',
-                            isInteractive ? 'text-white' : 'text-kleava-text-secondary/50 dark:text-[#8A9E97]/50'
+                            'w-4.5 h-4.5 stroke-[2.7] transition-colors duration-200',
+                            isInteractive
+                                ? 'text-white'
+                                : 'text-kleava-text-secondary/50 dark:text-[#8A9E97]/50'
                         )}
                     />
                 )}
