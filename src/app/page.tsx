@@ -1,0 +1,500 @@
+'use client';
+
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  ChatSession,
+  ComposerAttachment,
+  ChatMessage,
+  MessageFeedback,
+  CandidateMemorySuggestion,
+  MemoryCategory,
+  MemoryScope,
+  SettingsSection,
+} from '@/types';
+import { startAiStream, StreamController } from '@/lib/ai-stream';
+import { resolveEffectiveModel } from '@/lib/model-router';
+import { detectCandidateMemories } from '@/lib/memory-context-engine';
+import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts';
+import { useSettings } from '@/state/settings-context';
+import { ApplicationShell } from '@/components/layout/application-shell';
+import { BrandHeader } from '@/components/layout/brand-header';
+import { WelcomeState } from '@/components/modules/welcome-state';
+import { ConversationView } from '@/components/messages/conversation-view';
+import { NavPanel } from '@/components/layout/nav-panel';
+import { ChatComposer } from '@/components/composer/chat-composer';
+
+const INITIAL_CHATS: ChatSession[] = [
+  {
+    id: 'c1',
+    title: 'Landing Page redesign',
+    isPinned: true,
+    isArchived: false,
+    pinnedOrder: 0,
+    createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+  },
+  {
+    id: 'c2',
+    title: 'API architecture discussion',
+    isPinned: false,
+    isArchived: false,
+    createdAt: new Date(Date.now() - 1000 * 60 * 300).toISOString(),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 300).toISOString(),
+  },
+  {
+    id: 'c3',
+    title: 'বাংলা প্রম্পট অপটিমাইজেশন',
+    isPinned: false,
+    isArchived: false,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
+  },
+  {
+    id: 'c4',
+    title: 'Authentication flow setup',
+    isPinned: false,
+    isArchived: false,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4).toISOString(),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4).toISOString(),
+  },
+];
+
+export default function HomePage() {
+  const {
+    models,
+    personalization,
+    privacy,
+    useMemory,
+    autoSuggestMemories,
+    memories,
+    addMemory,
+    currentUser,
+    setActiveModelId,
+    dispatchAppNotification,
+  } = useSettings();
+
+  const [isNavOpen, setIsNavOpen] = useState(false);
+  const [activeView, setActiveView] = useState<'chat' | 'project'>('chat');
+  const [isIncognito, setIsIncognito] = useState(false);
+  const [activeChatId, setActiveChatId] = useState<string | undefined>(undefined);
+  const [chats, setChats] = useState<ChatSession[]>(INITIAL_CHATS);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [candidateSuggestions, setCandidateSuggestions] = useState<CandidateMemorySuggestion[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoadingSession, setIsLoadingSession] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [currentlySpeakingId, setCurrentlySpeakingId] = useState<string | null>(null);
+
+  const navTriggerRef = useRef<HTMLButtonElement>(null);
+  const activeStreamControllerRef = useRef<StreamController | null>(null);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsNavOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      activeStreamControllerRef.current?.cancel();
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  const handleNewChat = useCallback(() => {
+    activeStreamControllerRef.current?.cancel();
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setCurrentlySpeakingId(null);
+    setActiveChatId(undefined);
+    setMessages([]);
+    setCandidateSuggestions([]);
+    setActiveView('chat');
+    setIsProcessing(false);
+    setIsLoadingSession(false);
+    setSessionError(null);
+  }, []);
+
+  const handleToggleIncognito = useCallback(() => {
+    setIsIncognito((prev) => {
+      const next = !prev;
+      handleNewChat();
+      if (next) {
+        dispatchAppNotification(
+          'systemUpdates',
+          'Incognito Mode Active',
+          'Conversations in this mode will not be saved to your history.',
+          'info',
+          'Privacy Engine'
+        );
+      }
+      return next;
+    });
+  }, [handleNewChat, dispatchAppNotification]);
+
+  const handleCancelGeneration = useCallback(() => {
+    activeStreamControllerRef.current?.cancel();
+    activeStreamControllerRef.current = null;
+    setIsProcessing(false);
+    setMessages((prev) =>
+      prev.map((msg) => (msg.status === 'streaming' ? { ...msg, status: 'cancelled' } : msg))
+    );
+  }, []);
+
+  useGlobalShortcuts({
+    onSearch: () => setIsNavOpen(true),
+    onToggleNav: () => setIsNavOpen((prev) => !prev),
+    onNewChat: handleNewChat,
+    onOpenSettings: () => setIsNavOpen(true),
+    onFocusComposer: () => {
+      const textarea = document.querySelector('textarea');
+      textarea?.focus();
+    },
+    onCancelGeneration: handleCancelGeneration,
+  });
+
+  const handleSendMessage = (message: string, attachments: ComposerAttachment[], modelId: string) => {
+    if (isProcessing) return;
+    const currentChatId = isIncognito ? `incognito-${Date.now()}` : activeChatId || `chat-${Date.now()}`;
+
+    const effectiveModel = resolveEffectiveModel({
+      modelId,
+      hasAttachments: attachments.length > 0,
+      models,
+    });
+
+    if (!isIncognito && privacy.saveChatHistory) {
+      if (!activeChatId) {
+        const initialTitle =
+          message.trim() || (attachments.length > 0 ? `Attachment: ${attachments[0].name}` : 'New Conversation');
+        const newChat: ChatSession = {
+          id: currentChatId,
+          title: initialTitle.slice(0, 30),
+          isPinned: false,
+          isArchived: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          projectId: effectiveModel.name,
+        };
+        setChats((prev) => [newChat, ...prev]);
+        setActiveChatId(currentChatId);
+      } else {
+        setChats((prev) =>
+          prev.map((c) => (c.id === currentChatId ? { ...c, updatedAt: new Date().toISOString() } : c))
+        );
+      }
+    }
+
+    const newUserMsg: ChatMessage = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      chatId: currentChatId,
+      role: 'user',
+      content: message,
+      createdAt: new Date().toISOString(),
+      model: effectiveModel.name,
+      attachments,
+      status: 'sent',
+    };
+
+    const currentHistory = [...messages, newUserMsg];
+    setMessages(currentHistory);
+
+    if (!isIncognito && autoSuggestMemories && useMemory) {
+      const candidate = detectCandidateMemories(message, currentChatId);
+      if (candidate) {
+        setCandidateSuggestions((prev) => [...prev, candidate]);
+      }
+    }
+
+    const assistantMsgId = `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const initialAssistantMsg: ChatMessage = {
+      id: assistantMsgId,
+      chatId: currentChatId,
+      role: 'assistant',
+      content: '',
+      createdAt: new Date().toISOString(),
+      model: effectiveModel.name,
+      status: 'streaming',
+    };
+
+    setMessages((prev) => [...prev, initialAssistantMsg]);
+    setIsProcessing(true);
+
+    const historyPayload = currentHistory
+      .filter((m) => m.status === 'complete' || m.status === 'sent')
+      .slice(-12)
+      .map((m) => ({
+        role: (m.role === 'assistant' ? 'assistant' : 'user') as 'user' | 'assistant',
+        content: m.content,
+      }));
+
+    activeStreamControllerRef.current?.cancel();
+    activeStreamControllerRef.current = startAiStream(
+      {
+        modelId: effectiveModel.id,
+        prompt: message,
+        history: historyPayload,
+        memories: memories.filter((m) => m.enabled),
+        personalization: personalization as unknown as Record<string, string>,
+      },
+      {
+        onChunk: (accumulated: string) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsgId ? { ...m, content: accumulated, status: 'streaming' } : m
+            )
+          );
+        },
+        onComplete: (full: string) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsgId ? { ...m, content: full, status: 'complete' } : m
+            )
+          );
+          setIsProcessing(false);
+          activeStreamControllerRef.current = null;
+        },
+        onError: (err: Error) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsgId
+                ? { ...m, status: 'error', errorMessage: err.message || 'Stream generation failed.' }
+                : m
+            )
+          );
+          setIsProcessing(false);
+          activeStreamControllerRef.current = null;
+        },
+      }
+    );
+  };
+
+  const handleAcceptMemorySuggestion = (
+    suggestionId: string,
+    content: string,
+    type: MemoryCategory,
+    scope: MemoryScope
+  ) => {
+    addMemory({
+      title: content.slice(0, 24) || 'Saved Rule',
+      content,
+      type,
+      source: 'AI Suggested',
+      scope,
+      usage: 'relevant',
+      pinned: false,
+      enabled: true,
+      tags: ['user-confirmed'],
+    });
+
+    setCandidateSuggestions((prev) => prev.filter((s) => s.id !== suggestionId));
+  };
+
+  const handleDismissMemorySuggestion = (suggestionId: string) => {
+    setCandidateSuggestions((prev) => prev.filter((s) => s.id !== suggestionId));
+  };
+
+  const handleSelectChat = (id: string) => {
+    activeStreamControllerRef.current?.cancel();
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setCurrentlySpeakingId(null);
+    setActiveChatId(id);
+    setActiveView('chat');
+    setIsIncognito(false);
+    setIsLoadingSession(true);
+    setSessionError(null);
+    setIsProcessing(false);
+    setCandidateSuggestions([]);
+
+    setTimeout(() => {
+      setIsLoadingSession(false);
+      setMessages([
+        {
+          id: `msg-restored-1-${id}`,
+          chatId: id,
+          role: 'user',
+          content: 'পূর্ববর্তী সেশনের আলোচনা ও রিকোয়ারমেন্টস দেখতে চাই।',
+          createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+          status: 'sent',
+        },
+        {
+          id: `msg-restored-2-${id}`,
+          chatId: id,
+          role: 'assistant',
+          content: `### পূর্ববর্তী সেশনের সংক্ষেপ\nএই সেশনে আমরা **${id}** সংক্রান্ত কাজগুলো রিভিউ করেছিলাম।`,
+          createdAt: new Date(Date.now() - 1000 * 60 * 29).toISOString(),
+          status: 'complete',
+        },
+      ]);
+    }, 150);
+  };
+
+  const handleFeedback = (messageId: string, feedback: MessageFeedback) => {
+    setMessages((prev) =>
+      prev.map((msg) => (msg.id === messageId ? { ...msg, feedback } : msg))
+    );
+  };
+
+  const handleRetry = (messageId: string) => {
+    const targetMsg = messages.find((m) => m.id === messageId);
+    if (!targetMsg) return;
+    handleSendMessage('পুনরায় জেনারেট করা হচ্ছে', [], targetMsg.model || 'kleava');
+  };
+
+  const handleEditMessage = (messageId: string, newContent: string) => {
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === messageId
+          ? { ...msg, content: newContent, isEdited: true, updatedAt: new Date().toISOString() }
+          : msg
+      )
+    );
+  };
+
+  const handlePinToggle = (chatId: string) => {
+    setChats((prev) =>
+      prev.map((chat) => {
+        if (chat.id === chatId) {
+          const nextPinned = !chat.isPinned;
+          return {
+            ...chat,
+            isPinned: nextPinned,
+            pinnedOrder: nextPinned ? 0 : undefined,
+          };
+        }
+        return chat;
+      })
+    );
+  };
+
+  const handleRename = (chatId: string, newTitle: string) => {
+    setChats((prev) =>
+      prev.map((chat) =>
+        chat.id === chatId ? { ...chat, title: newTitle, updatedAt: new Date().toISOString() } : chat
+      )
+    );
+  };
+
+  const handleArchive = (chatId: string) => {
+    setChats((prev) =>
+      prev.map((chat) =>
+        chat.id === chatId ? { ...chat, isArchived: true, isPinned: false } : chat
+      )
+    );
+    if (activeChatId === chatId) {
+      handleNewChat();
+    }
+  };
+
+  const handleUnarchive = (chatId: string) => {
+    setChats((prev) =>
+      prev.map((chat) => (chat.id === chatId ? { ...chat, isArchived: false } : chat))
+    );
+  };
+
+  const handleDelete = (chatId: string) => {
+    setChats((prev) => prev.filter((chat) => chat.id !== chatId));
+    if (activeChatId === chatId) {
+      handleNewChat();
+    }
+  };
+
+  const handleReorderPinned = (reorderedPinned: ChatSession[]) => {
+    setChats((prev) => {
+      const unpinned = prev.filter((c) => !c.isPinned);
+      return [...reorderedPinned, ...unpinned];
+    });
+  };
+
+  const handleSelectSettingsSection = (_section: SettingsSection) => {
+    // Navigate via nav-panel
+  };
+
+  const handleSelectModel = (modelId: string) => {
+    setActiveModelId(modelId);
+  };
+
+  const handleCloseNav = () => {
+    setIsNavOpen(false);
+    navTriggerRef.current?.focus();
+  };
+
+  const hasMessages = messages.length > 0;
+
+  return (
+    <ApplicationShell>
+      <ApplicationShell.Top>
+        <BrandHeader
+          isNavOpen={isNavOpen}
+          onToggleNav={(open) => setIsNavOpen(open)}
+          isIncognito={isIncognito}
+          onExitIncognito={() => setIsIncognito(false)}
+          triggerRef={navTriggerRef}
+        />
+      </ApplicationShell.Top>
+
+      <NavPanel
+        isOpen={isNavOpen}
+        onClose={handleCloseNav}
+        activeItem={activeView}
+        isIncognito={isIncognito}
+        chats={chats}
+        messages={messages}
+        user={isIncognito ? null : currentUser}
+        activeChatId={activeChatId}
+        onSelectChat={handleSelectChat}
+        onSelectSettingsSection={handleSelectSettingsSection}
+        onSelectModel={handleSelectModel}
+        onPinToggle={handlePinToggle}
+        onRename={handleRename}
+        onArchive={handleArchive}
+        onUnarchive={handleUnarchive}
+        onDelete={handleDelete}
+        onReorderPinned={handleReorderPinned}
+        onNavigate={(item) => setActiveView(item)}
+        onNewChat={handleNewChat}
+        onToggleIncognito={handleToggleIncognito}
+      />
+
+      <ApplicationShell.Main>
+        {!hasMessages ? (
+          <WelcomeState userName={isIncognito ? 'Guest' : currentUser?.name} />
+        ) : (
+          <ConversationView
+            messages={messages}
+            candidateSuggestions={candidateSuggestions}
+            isLoadingSession={isLoadingSession}
+            sessionError={sessionError}
+            currentlySpeakingId={currentlySpeakingId}
+            onAcceptMemorySuggestion={handleAcceptMemorySuggestion}
+            onDismissMemorySuggestion={handleDismissMemorySuggestion}
+            onStartSpeaking={(id) => setCurrentlySpeakingId(id)}
+            onStopSpeaking={() => setCurrentlySpeakingId(null)}
+            onRetrySession={() => setSessionError(null)}
+            onEditMessage={handleEditMessage}
+            onFeedbackMessage={handleFeedback}
+            onRetryMessage={handleRetry}
+          />
+        )}
+      </ApplicationShell.Main>
+
+      <ApplicationShell.Bottom>
+        <ChatComposer
+          onSend={handleSendMessage}
+          onCancel={handleCancelGeneration}
+          isProcessing={isProcessing}
+        />
+      </ApplicationShell.Bottom>
+    </ApplicationShell>
+  );
+}
