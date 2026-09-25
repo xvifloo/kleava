@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { resolveModelConfig } from '@/server/models/registry';
-import { streamGeminiResponse, HistoryMessage } from '@/server/adapters/gemini.adapter';
+import { HistoryMessage } from '@/server/adapters/gemini.adapter';
+import { streamChatWithFallback } from '@/server/providers/router';
 import { NormalizedError } from '@/server/errors/normalized-error';
 
 export const runtime = 'nodejs';
@@ -72,7 +73,8 @@ export async function POST(req: NextRequest) {
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          const generator = streamGeminiResponse({
+          // Route through Fallback Orchestrator (Gemini -> Groq)
+          const generator = streamChatWithFallback({
             modelConfig,
             message: message.trim(),
             history: Array.isArray(history) ? history.slice(-16) : [],
@@ -97,7 +99,6 @@ export async function POST(req: NextRequest) {
             return;
           }
 
-          // Structured developer logging for runtime diagnostics
           console.error('[API Route Stream Error]:', err);
 
           let errorCode = 'INTERNAL_ERROR';

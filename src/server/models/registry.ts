@@ -11,6 +11,7 @@ export interface ModelConfig {
   temperature: number;
   topP: number;
   thinkingBudget: number;
+  groqModel: string;
 }
 
 export const MODEL_REGISTRY: Record<PublicModelId, ModelConfig> = {
@@ -22,6 +23,7 @@ export const MODEL_REGISTRY: Record<PublicModelId, ModelConfig> = {
     temperature: 0.7,
     topP: 0.95,
     thinkingBudget: 0,
+    groqModel: 'openai/gpt-oss-20b',
   },
   'kleava-pro': {
     id: 'kleava-pro',
@@ -31,6 +33,7 @@ export const MODEL_REGISTRY: Record<PublicModelId, ModelConfig> = {
     temperature: 0.2,
     topP: 0.85,
     thinkingBudget: 2048,
+    groqModel: 'openai/gpt-oss-120b',
   },
 };
 

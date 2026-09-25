@@ -1,0 +1,167 @@
+import { ModelConfig } from '@/server/models/registry';
+import { NormalizedError } from '@/server/errors/normalized-error';
+import { HistoryMessage } from './gemini.adapter';
+
+export interface StreamGroqOptions {
+  modelConfig: ModelConfig;
+  message: string;
+  history?: HistoryMessage[];
+  contextEnvelope?: string;
+  signal?: AbortSignal;
+}
+
+interface GroqMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export async function* streamGroqResponse({
+  modelConfig,
+  message,
+  history = [],
+  contextEnvelope = '',
+  signal,
+}: StreamGroqOptions): AsyncGenerator<string, void, unknown> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey || apiKey.trim() === '') {
+    throw new NormalizedError(
+      'MISSING_API_KEY',
+      500,
+      'Server configuration error: GROQ_API_KEY is missing in server environment.'
+    );
+  }
+
+  // Resolve configured model from env or registry default
+  const defaultModel =
+    modelConfig.id === 'kleava-pro'
+      ? process.env.GROQ_KLEAVA_PRO_MODEL || modelConfig.groqModel || 'openai/gpt-oss-120b'
+      : process.env.GROQ_KLEAVA_MODEL || modelConfig.groqModel || 'openai/gpt-oss-20b';
+
+  const endpoint = 'https://api.groq.com/openai/v1/chat/completions';
+
+  const messages: GroqMessage[] = [
+    {
+      role: 'system',
+      content: modelConfig.systemInstruction,
+    },
+  ];
+
+  // Map history cleanly
+  for (const item of history) {
+    if (!item.content || item.content.trim() === '') continue;
+    messages.push({
+      role: item.role === 'assistant' ? 'assistant' : 'user',
+      content: item.content,
+    });
+  }
+
+  // Append isolated context envelope with current user prompt
+  const currentPrompt = contextEnvelope ? `${contextEnvelope}\n\n${message}` : message;
+  messages.push({
+    role: 'user',
+    content: currentPrompt,
+  });
+
+  const payload: Record<string, unknown> = {
+    model: defaultModel,
+    messages,
+    temperature: modelConfig.temperature,
+    top_p: modelConfig.topP,
+    stream: true,
+  };
+
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(payload),
+      signal,
+    });
+  } catch (_err: unknown) {
+    if (signal?.aborted) {
+      throw new NormalizedError('STREAM_INTERRUPTED', 499, 'Request was aborted by the client.');
+    }
+    throw new NormalizedError('PROVIDER_UNAVAILABLE', 503, 'Failed to connect to the Groq AI service.');
+  }
+
+  if (!response.ok) {
+    let errBody = '';
+    try {
+      errBody = await response.text();
+    } catch {
+      errBody = 'Unable to read upstream Groq response body';
+    }
+
+    console.error('[Groq Upstream Error]', {
+      status: response.status,
+      statusText: response.statusText,
+      model: defaultModel,
+      body: errBody,
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      throw new NormalizedError('INVALID_API_KEY', 401, 'Groq API authentication failed. Please check GROQ_API_KEY.');
+    }
+    if (response.status === 429) {
+      throw new NormalizedError('RATE_LIMIT', 429, 'Groq API rate limit reached. Please try again shortly.');
+    }
+    if (response.status >= 500) {
+      throw new NormalizedError('PROVIDER_UNAVAILABLE', 503, 'Groq service is temporarily unavailable.');
+    }
+    throw new NormalizedError('INTERNAL_ERROR', response.status, 'An unexpected error occurred with the fallback service.');
+  }
+
+  if (!response.body) {
+    throw new NormalizedError('INVALID_PROVIDER_RESPONSE', 502, 'Groq service returned an empty stream body.');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let lineBuffer = '';
+  let yieldedAnyText = false;
+
+  try {
+    while (true) {
+      if (signal?.aborted) {
+        await reader.cancel();
+        break;
+      }
+
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      lineBuffer += decoder.decode(value, { stream: true });
+      const lines = lineBuffer.split('\n');
+      lineBuffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data:')) continue;
+
+        const jsonStr = trimmed.replace(/^data:\s*/, '');
+        if (!jsonStr || jsonStr === '[DONE]') continue;
+
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const delta = parsed?.choices?.[0]?.delta;
+          if (delta?.content && typeof delta.content === 'string') {
+            yield delta.content;
+            yieldedAnyText = true;
+          }
+        } catch {
+          // Skip broken chunks
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  if (!yieldedAnyText && !signal?.aborted) {
+    throw new NormalizedError('INVALID_PROVIDER_RESPONSE', 502, 'No text content was generated by Groq.');
+  }
+}
