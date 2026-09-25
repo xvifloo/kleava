@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
 
     const modelConfig = resolveModelConfig(model);
 
+    // Sanitize and isolate memories and personalization into contextual wrapper
     let contextEnvelope = '';
     const contextSections: string[] = [];
 
@@ -96,17 +97,26 @@ export async function POST(req: NextRequest) {
             return;
           }
 
-          let normalized: NormalizedError;
+          // Structured developer logging for runtime diagnostics
+          console.error('[API Route Stream Error]:', err);
+
+          let errorCode = 'INTERNAL_ERROR';
+          let errorMessage = 'An unexpected error occurred while generating the response.';
+
           if (err instanceof NormalizedError) {
-            normalized = err;
-          } else {
-            normalized = new NormalizedError('INTERNAL_ERROR', 500, 'An unexpected error occurred while generating the response.');
+            errorCode = err.code;
+            errorMessage = err.userMessage;
+          } else if (err && typeof err === 'object' && 'code' in err && 'userMessage' in err) {
+            errorCode = String((err as { code: unknown }).code);
+            errorMessage = String((err as { userMessage: unknown }).userMessage);
+          } else if (err instanceof Error) {
+            errorMessage = err.message;
           }
 
           const errorEvent = `data: ${JSON.stringify({
             type: 'error',
-            code: normalized.code,
-            message: normalized.userMessage,
+            code: errorCode,
+            message: errorMessage,
           })}\n\n`;
           controller.enqueue(encoder.encode(errorEvent));
           controller.close();
@@ -122,6 +132,8 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error: unknown) {
+    console.error('[API Route Immediate Error]:', error);
+
     let normalized: NormalizedError;
     if (error instanceof NormalizedError) {
       normalized = error;
